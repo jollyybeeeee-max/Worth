@@ -152,6 +152,10 @@ svg{display:block}
 <script>
 "use strict";
 
+/* ---------- version ---------- */
+var APP_VERSION = "2026.07.27.1";
+var MADE_BY = "₩orth — crafted by JE:P";   // 여기 문구를 바꾸면 하단 표시가 바뀝니다
+
 /* ---------- storage ---------- */
 var KEY = "worth:";
 function load(k, d) {
@@ -909,11 +913,17 @@ function render(){
       '</button>'+
     '<button class="ib" data-smart="1" style="color:var(--accent)">'+svg("spark",16)+'</button>'+
     '<button class="pb" data-new="1">'+svg("plus",16,"#fff",2.6)+'기록</button>'+
-    '</div></div>'+body+'</div>'+
+    '</div></div>'+body+
+    '<div style="text-align:center;padding:26px 0 6px;font-size:11px;color:var(--inkSoft);letter-spacing:.02em">'+
+      esc(MADE_BY)+'<span style="opacity:.5"> · v'+APP_VERSION+'</span></div>'+
+    '</div>'+
     '<div class="tabs">'+
     [["stats","통계","chart"],["home","내역","list"],["assets","자산","layers"]].map(function(t){
       return '<button data-tab="'+t[0]+'" class="'+(S.tab===t[0]?"on":"")+'">'+svg(t[2],19)+t[1]+'</button>'; }).join("")+
     '</div>';
+  if(UPDATE_READY) h+='<button id="upd" style="position:fixed;left:50%;transform:translateX(-50%);bottom:74px;'+
+    'z-index:40;background:var(--ink);color:var(--bg);border-radius:999px;padding:10px 18px;'+
+    'font-size:12.5px;font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,.25)">새 버전이 있어요 · 새로고침</button>';
   if(M) h+= M.kind!==undefined ? mCats() : M.sms!==undefined||M.batch ? mSmart() : M.atype!==undefined ? mAcc() : mTx();
   document.getElementById("app").innerHTML=h;
 }
@@ -1146,8 +1156,32 @@ function doImport(file){
   fr.readAsText(file);
 }
 
+/* ---------- update check ---------- */
+var UPDATE_READY = false;
+function checkUpdate(){
+  // Re-fetch this same page bypassing the cache and compare the version stamp.
+  try{
+    fetch(location.href.split("#")[0], {cache:"no-store"})
+      .then(function(r){ return r.ok ? r.text() : null; })
+      .then(function(t){
+        if(!t) return;
+        var m = t.match(/APP_VERSION\s*=\s*"([^"]+)"/);
+        if(m && m[1] !== APP_VERSION && !UPDATE_READY){ UPDATE_READY = true; render(); }
+      })
+      .catch(function(){});
+  }catch(e){}
+}
+document.addEventListener("click",function(e){
+  var b = e.target.closest && e.target.closest("#upd");
+  if(!b) return;
+  location.reload(true);
+});
+document.addEventListener("visibilitychange",function(){
+  if(!document.hidden) checkUpdate();
+});
+
 /* ---------- go ---------- */
-try{ runRecurring(); render(); }
+try{ runRecurring(); render(); setTimeout(checkUpdate, 1500); }
 catch(e){
   document.getElementById("app").innerHTML=
     '<div style="padding:28px;font-size:13px;color:#6B6D6C"><b style="display:block;font-size:15px;color:#2B2B2C;margin-bottom:8px">오류가 났어요</b>'+
