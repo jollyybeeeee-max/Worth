@@ -163,7 +163,7 @@ svg{display:block}
 "use strict";
 
 /* ---------- version ---------- */
-var APP_VERSION = "2026.07.27.13";
+var APP_VERSION = "2026.07.27.16";
 var MADE_BY = "₩orth — crafted by JE:P";   // 여기 문구를 바꾸면 하단 표시가 바뀝니다
 
 /* ---------- storage ---------- */
@@ -178,53 +178,77 @@ function save(k, v) {
 
 /* ---------- icons (inline svg paths) ---------- */
 var P = {
-  utensils:'M3 2v7c0 1.1.9 2 2 2h1v11M7 2v7M11 2v7M18 2c-1.7 0-3 3-3 7 0 2 .6 3 1.5 3H18v10',
-  car:'M5 17H3v-5l2-5h14l2 5v5h-2M7 17a2 2 0 1 0 4 0 2 2 0 1 0-4 0M15 17a2 2 0 1 0 4 0 2 2 0 1 0-4 0M5 12h14',
-  home:'M3 10l9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z',
-  movie:'M3 4h18v16H3zM7 4v16M17 4v16M3 10h18M3 15h18',
-  bag:'M6 2 3 7v13a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V7l-3-5zM3 7h18M16 11a4 4 0 0 1-8 0',
-  health:'M19 14c1.5-1.5 2-3.3 2-5a5 5 0 0 0-9-3 5 5 0 0 0-9 3c0 1.7.5 3.5 2 5l7 7z',
-  book:'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z',
-  dots:'M5 12h.01M12 12h.01M19 12h.01',
-  wallet:'M19 7V5a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2V5M17 13h.01',
-  trend:'M22 7l-8.5 8.5-5-5L2 17M16 7h6v6',
-  gift:'M20 12v9H4v-9M2 7h20v5H2zM12 21V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z',
-  coffee:'M17 8h1a4 4 0 1 1 0 8h-1M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4zM6 1v3M10 1v3M14 1v3',
-  plane:'M17.8 19.2 16 11l3.5-3.5a2.1 2.1 0 0 0-3-3L13 8 4.8 6.2a1 1 0 0 0-.9 1.7l5.5 3.3-2.6 2.6H4l-1 1 3.6 1.4L8 21l1-1v-2.8l2.6-2.6 3.3 5.5a1 1 0 0 0 1.7-.9z',
-  dumbbell:'M14.4 14.4 9.6 9.6M18.7 8.3l1.4-1.4a2 2 0 0 0-2.8-2.8l-1.4 1.4M8.3 18.7l-1.4 1.4a2 2 0 0 1-2.8-2.8l1.4-1.4M2 22l2-2M20 4l2-2M6.6 6.6 4.8 4.8M19.2 19.2l-1.8-1.8',
-  phone:'M5 2h14a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM12 18h.01',
-  paw:'M11 5a2 2 0 1 1-4 0 2 2 0 0 1 4 0M17 5a2 2 0 1 1-4 0 2 2 0 0 1 4 0M21 11a2 2 0 1 1-4 0 2 2 0 0 1 4 0M7 11a2 2 0 1 1-4 0 2 2 0 0 1 4 0M12 12c2.8 0 5 2.2 5 5a3 3 0 0 1-3 3h-4a3 3 0 0 1-3-3c0-2.8 2.2-5 5-5z',
-  shirt:'M20.4 6 16 3l-4 3-4-3-4.4 3 2 4 2-1v11h8.8V9l2 1z',
-  wine:'M8 22h8M12 15v7M7 2h10l-1 7a4 4 0 0 1-8 0z',
-  baby:'M9 12h.01M15 12h.01M10 16c.5.5 1.2 1 2 1s1.5-.5 2-1M12 2a9 9 0 1 0 0 18 9 9 0 0 0 0-18z',
-  card:'M2 6h20v12H2zM2 10h20',
-  bank:'M3 21h18M4 10v8M9 10v8M15 10v8M20 10v8M2 8l10-5 10 5z',
-  cash:'M2 6h20v12H2zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6M6 12h.01M18 12h.01',
-  pig:'M17 9h.01M2 12a7 7 0 0 1 7-7h4a7 7 0 0 1 6.7 5H21a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-1a7 7 0 0 1-2 3v3h-3v-2H9v2H6v-3a7 7 0 0 1-4-6zM9 5V3',
-  plus:'M12 5v14M5 12h14',
-  x:'M18 6 6 18M6 6l12 12',
-  trash:'M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6',
-  pencil:'M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z',
-  left:'M15 18 9 12l6-6',
-  right:'M9 18l6-6-6-6',
-  up:'M18 15l-6-6-6 6',
-  down:'M6 9l6 6 6-6',
-  check:'M20 6 9 17l-5-5',
-  repeat:'M17 2l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3',
-  power:'M12 2v10M18.4 6.6a9 9 0 1 1-12.8 0',
-  spark:'M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4z',
-  sun:'M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4',
-  moon:'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z',
-  dl:'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
-  ul:'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12',
-  list:'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
-  chart:'M21.2 15.9A10 10 0 1 1 8.1 2.8M22 12A10 10 0 0 0 12 2v10z',
-  layers:'M12 2 2 7l10 5 10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
-  find:'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M20 20l-4-4',
-  gear:'M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1v.3a2 2 0 1 1-4 0v-.2a1.6 1.6 0 0 0-2.8-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 4.5 15h-.3a2 2 0 1 1 0-4h.2A1.6 1.6 0 0 0 5.5 8.2l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 2.7-1.1v-.3a2 2 0 1 1 4 0v.2a1.6 1.6 0 0 0 2.8 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7h.3a2 2 0 1 1 0 4h-.2a1.6 1.6 0 0 0-1.4 1z',
-  undo:'M3 7v6h6M3.5 13a9 9 0 1 0 2.1-6.4L3 9',
+  arrDn:'M7 7l10 10M17 7v10H7',
   arrUp:'M7 17 17 7M7 7h10v10',
-  arrDn:'M7 7l10 10M17 7v10H7'
+  baby:'M12 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16M9 10h.01M15 10h.01M9.5 14c.7.7 1.5 1 2.5 1s1.8-.3 2.5-1',
+  bag:'M6 8h12l1 12H5zM9 8V6a3 3 0 0 1 6 0v2',
+  bank:'M3 20h18M4 20V10M9 20V10M15 20V10M20 20V10M2 9l10-5 10 5z',
+  bike:'M6 18a3 3 0 1 0 0-6 3 3 0 0 0 0 6M18 18a3 3 0 1 0 0-6 3 3 0 0 0 0 6M6 15l4-8h5l-3 8M14 7h3',
+  book:'M5 4h9a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2zM16 6h3v14H7',
+  bowl:'M3 11h18a9 9 0 0 1-18 0zM7 11V8M12 11V6M17 11V8',
+  bulb:'M9 18h6M10 21h4M12 3a6 6 0 0 1 4 10.5V16H8v-2.5A6 6 0 0 1 12 3z',
+  bus:'M4 17V5h16v12M4 17h16M4 17v2M20 17v2M7 12h.01M17 12h.01M4 9h16',
+  cake:'M4 21h16v-7H4zM4 14a3 3 0 0 1 4 0 3 3 0 0 0 4 0 3 3 0 0 1 4 0 3 3 0 0 0 4 0M12 5v4M12 3v.01',
+  camera:'M4 7h3l2-2h6l2 2h3v12H4zM12 16a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7',
+  car:'M4 16v3M20 16v3M3 16h18v-4l-2-5H5L3 12zM7 16v.01M17 16v.01M3 12h18',
+  card:'M3 6h18v12H3zM3 10h18M6 15h4',
+  cart:'M3 4h2l2.5 10h10L20 7H6M9 19a1 1 0 1 0 0 2 1 1 0 0 0 0-2M18 19a1 1 0 1 0 0 2 1 1 0 0 0 0-2',
+  cash:'M2 6h20v12H2zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M5 9h.01M19 15h.01',
+  chart:'M21.2 15.9A10 10 0 1 1 8.1 2.8M22 12A10 10 0 0 0 12 2v10z',
+  check:'M20 6 9 17l-5-5',
+  coffee:'M4 8h12v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4zM16 9h2a2.5 2.5 0 0 1 0 5h-2M6 2v2M10 2v2M14 2v2M3 21h14',
+  coin:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M12 7v10M9.5 9.5A2.5 2.5 0 0 1 12 8h1M14.5 14.5A2.5 2.5 0 0 1 12 16h-1',
+  cup:'M6 4h9v10a4 4 0 0 1-4 4H10a4 4 0 0 1-4-4zM15 7h2a2.5 2.5 0 0 1 0 5h-2M4 21h13',
+  dl:'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
+  dots:'M5 12h.01M12 12h.01M19 12h.01',
+  down:'M6 9l6 6 6-6',
+  dumbbell:'M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10',
+  find:'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M20 20l-4-4',
+  game:'M7 12h4M9 10v4M16 12h.01M14 14h.01M7 7h10a5 5 0 0 1 0 10H7A5 5 0 0 1 7 7z',
+  gear:'M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1v.3a2 2 0 1 1-4 0v-.2a1.6 1.6 0 0 0-2.8-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 4.5 15h-.3a2 2 0 1 1 0-4h.2A1.6 1.6 0 0 0 5.5 8.2l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 2.7-1.1v-.3a2 2 0 1 1 4 0v.2a1.6 1.6 0 0 0 2.8 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7h.3a2 2 0 1 1 0 4h-.2a1.6 1.6 0 0 0-1.4 1z',
+  gift:'M3 11h18v10H3zM3 7h18v4H3zM12 7v14M12 7C10 7 8 6 8 4.5S10 3 12 7zM12 7c2 0 4-1 4-2.5S14 3 12 7z',
+  globe:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18',
+  health:'M12 20s-7-4.5-7-9.5A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7 3.5C19 15.5 12 20 12 20z',
+  heart:'M12 20s-7-4.5-7-9.5A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7 3.5C19 15.5 12 20 12 20z',
+  home:'M4 11l8-7 8 7v9H4zM10 20v-6h4v6',
+  layers:'M12 2 2 7l10 5 10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+  leaf:'M4 20c0-8 5-13 16-14 0 10-5 15-13 15H4zM4 20c3-4 6-6 10-8',
+  left:'M15 18 9 12l6-6',
+  list:'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
+  moon:'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z',
+  movie:'M3 5h18v14H3zM7 5v14M17 5v14M3 12h18M3 9h4M3 15h4M17 9h4M17 15h4',
+  music:'M9 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5M9 15.5V4l10-2v11M19 15.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0',
+  paw:'M6 13a2 2 0 1 0 0-4 2 2 0 0 0 0 4M18 13a2 2 0 1 0 0-4 2 2 0 0 0 0 4M9.5 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4M14.5 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4M12 12c2.5 0 4.5 2 4.5 4.5S14.5 21 12 21s-4.5-2-4.5-4.5S9.5 12 12 12z',
+  pencil:'M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z',
+  phone:'M6 2h12v20H6zM10 18h4',
+  pig:'M4 12a6 6 0 0 1 6-6h3a6 6 0 0 1 5.6 4H21v4h-2.2a6 6 0 0 1-1.8 2.4V20h-3v-1.5h-4V20H7v-3.4A6 6 0 0 1 4 12zM10 6V4M15.5 11h.01',
+  pill:'M8 4h8v16H8zM8 12h8M10 8h.01',
+  plane:'M3 12l18-7-4 7 4 7z M7 12h10',
+  plus:'M12 5v14M5 12h14',
+  power:'M12 2v10M18.4 6.6a9 9 0 1 1-12.8 0',
+  receipt:'M5 3h14v18l-2.3-1.5-2.3 1.5-2.4-1.5L9.6 21 7.3 19.5 5 21zM9 8h6M9 12h6',
+  repeat:'M17 2l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3',
+  right:'M9 18l6-6-6-6',
+  scissors:'M7 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4M7 21a2 2 0 1 0 0-4 2 2 0 0 0 0 4M8.5 8.5L20 20M8.5 15.5L20 4',
+  shirt:'M8 3l4 3 4-3 4 3-2 4-2-1v12H8V9L6 10 4 6z',
+  spark:'M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4z',
+  star:'M12 3l2.6 5.6 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.4l6-.8z',
+  stethoscope:'M6 3v6a4 4 0 0 0 8 0V3M4 3h3M13 3h3M10 13v3a4 4 0 0 0 8 0v-2M18 10a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3',
+  sun:'M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4',
+  tag:'M3 12V3h9l9 9-9 9zM7.5 7.5h.01',
+  ticket:'M4 6h16v3a2 2 0 0 0 0 6v3H4v-3a2 2 0 0 0 0-6zM12 8v1M12 11.5v1M12 15v1',
+  tool:'M15 3a5 5 0 0 0-4.5 7.2L3 17.7 6.3 21l7.5-7.5A5 5 0 1 0 15 3z',
+  train:'M6 3h12v11H6zM6 14l-2 6M18 14l2 6M9 8h6M8 18h8',
+  trash:'M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6',
+  trend:'M3 17l6-6 4 4 8-8M15 7h6v6',
+  ul:'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12',
+  undo:'M3 7v6h6M3.5 13a9 9 0 1 0 2.1-6.4L3 9',
+  up:'M18 15l-6-6-6 6',
+  utensils:'M6 3v7a2 2 0 0 0 4 0V3M8 12v9M15 3c-1 0-2 2-2 5s1 4 2 4h2V3z M17 12v9',
+  wallet:'M3 7h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3zM3 7V5h13M17 13h.01',
+  washer:'M5 3h14v18H5zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8M8 6h.01M11 6h.01',
+  wine:'M8 3h8l-.6 5a3.4 3.4 0 0 1-6.8 0zM12 14v6M8 20h8',
+  x:'M18 6 6 18M6 6l12 12'
 };
 function svg(n, sz, col, sw) {
   var d = P[n] || P.dots;
@@ -235,15 +259,14 @@ function svg(n, sz, col, sw) {
 /* ---------- palette ---------- */
 var SW = ["#D2685C","#E08A5B","#D9A441","#C7B037","#8FA83F","#4E9E72","#3FA38C","#3E9BA8","#4C86B8",
           "#5C77C4","#7A6FC0","#9C6BB5","#C4649E","#D46A83","#B5705C","#8C7A6B","#6E8B86","#8A8D8B"];
-var ICONKEYS = ["utensils","car","home","movie","bag","health","book","coffee","plane","dumbbell",
-                "phone","paw","shirt","wine","baby","wallet","trend","gift","dots"];
+var ICONKEYS = ["utensils", "coffee", "cup", "bowl", "cake", "wine", "car", "bus", "train", "bike", "plane", "home", "bulb", "phone", "shirt", "washer", "bag", "cart", "gift", "ticket", "tag", "health", "pill", "dumbbell", "stethoscope", "book", "movie", "music", "game", "camera", "paw", "baby", "scissors", "leaf", "star", "heart", "globe", "tool", "receipt", "wallet", "trend", "coin", "pig", "card", "bank", "cash", "dots"];
 
 var DEF_EXP = [
   {key:"food",label:"식비",icon:"utensils",color:"#D2685C"},
   {key:"transport",label:"교통",icon:"car",color:"#E08A5B"},
   {key:"housing",label:"주거",icon:"home",color:"#4C86B8"},
   {key:"culture",label:"문화",icon:"movie",color:"#9C6BB5"},
-  {key:"shopping",label:"쇼핑",icon:"bag",color:"#C4649E"},
+  {key:"shopping",label:"쇼핑",icon:"cart",color:"#C4649E"},
   {key:"health",label:"의료",icon:"health",color:"#D46A83"},
   {key:"education",label:"교육",icon:"book",color:"#3E9BA8"},
   {key:"etc_expense",label:"기타",icon:"dots",color:"#8A8D8B"}
@@ -421,53 +444,109 @@ function guessCat(text){
 function parseSms(raw){
   var text=(raw||"").replace(/\[Web발신\]/g," ").trim();
   if(!text) return null;
-  var lines=text.split(/[\n\r]+/).map(function(l){return l.trim();}).filter(Boolean);
+  var lines=text.split(/[\n\r]+/).map(function(l){return l.replace(/^[\s\-◆■●*\u25A0-\u25FF]+/,"").trim();}).filter(Boolean);
+
+  // 라벨이 붙은 문자(예: "가맹점명 : 스타벅스")면 그 값을 그대로 씁니다
+  function labeled(re){
+    for(var i=0;i<lines.length;i++){
+      var m=lines[i].match(re);
+      if(m && m[1] && m[1].trim()) return m[1].trim();
+    }
+    return "";
+  }
+
   var RE=/([\d]{1,3}(?:,[\d]{3})+|\d{3,})\s*원/g;
   function pick(src){ var o=[],m; RE.lastIndex=0;
     while((m=RE.exec(src))) o.push(parseInt(m[1].replace(/,/g,""),10));
     return o.filter(Boolean); }
-  var aLine=null;
-  for(var i=0;i<lines.length;i++) if(/(출금|입금|승인|결제|이체|사용)/.test(lines[i])&&/원/.test(lines[i])){aLine=lines[i];break;}
-  var amount=(aLine?pick(aLine):[])[0]||pick(text)[0]||0;
+
+  // 금액: 라벨 우선
+  var amount=0;
+  var amtLabel=labeled(/(?:사용|승인|결제|출금|입금|이용|거래)\s*금액\s*[:：]?\s*(.+)$/);
+  if(amtLabel) amount=pick(amtLabel)[0]||0;
+  if(!amount){
+    var aLine=null;
+    for(var i=0;i<lines.length;i++) if(/(출금|입금|승인|결제|이체|사용)/.test(lines[i])&&/원/.test(lines[i])){aLine=lines[i];break;}
+    amount=(aLine?pick(aLine):[])[0]||pick(text)[0]||0;
+  }
   if(!amount) return null;
+
+  // 취소/입금이면 수입으로
   var type=(/입금|입급/.test(text)&&!/출금/.test(text))||/취소/.test(text)?"income":"expense";
+
+  // 날짜: 라벨 우선, 없으면 본문에서
   var date=today(), now=new Date();
-  var full=text.match(/(20\d{2})[.\-/](\d{1,2})[.\-/](\d{1,2})/);
+  var dSrc=labeled(/(?:거래시간|거래일시|이용일시|승인일시|이용일자|거래일자)\s*[:：]?\s*(.+)$/)||text;
+  var full=dSrc.match(/(20\d{2})[.\-/](\d{1,2})[.\-/](\d{1,2})/)||text.match(/(20\d{2})[.\-/](\d{1,2})[.\-/](\d{1,2})/);
   if(full){ var mo=+full[2],dy=+full[3];
     if(mo>=1&&mo<=12&&dy>=1&&dy<=31) date=full[1]+"-"+pad(mo)+"-"+pad(dy);
   } else {
-    var md=text.match(/(\d{1,2})\s*[./월]\s*(\d{1,2})/);
+    var md=dSrc.match(/(\d{1,2})\s*[./월]\s*(\d{1,2})/)||text.match(/(\d{1,2})\s*[./월]\s*(\d{1,2})/);
     if(md){ var mo2=+md[1],dy2=+md[2];
       if(mo2>=1&&mo2<=12&&dy2>=1&&dy2<=31){
         var y=now.getFullYear(); if(mo2>now.getMonth()+1) y--;
         date=y+"-"+pad(mo2)+"-"+pad(dy2);
       } }
   }
-  var NS=/^(승인|취소|출금|입금|이체|결제|사용|잔액|누적|일시불|할부)/, NL=/(카드|은행|계좌|승인|취소|잔액|누적|고객|회원)/;
-  var cands=lines.filter(function(l){ return !/^\[.*\]$/.test(l) && !/\d[\d,]*\s*원/.test(l) && /[가-힣A-Za-z]/.test(l); })
-    .map(function(l){ return l.replace(/^\d{2,4}[.\-/]\d{1,2}([.\-/]\d{1,2})?\s*/,"").replace(/^\d{1,2}:\d{2}(:\d{2})?\s*/,"").trim(); })
-    .filter(function(l){ return l && !/^\d{1,2}:\d{2}/.test(l) && !NS.test(l) && !NL.test(l) && !/님$/.test(l); });
-  var merchant=cands.length?cands[cands.length-1]:"";
+
+  // 상호명: 라벨이 있으면 그것만 신뢰
+  var merchant=labeled(/(?:가맹점명|가맹점|이용가맹점|사용처|이용처|거래처)\s*[:：]?\s*(.+)$/);
   if(!merchant){
-    var a1=text.match(/\d[\d,]*\s*원\s*(.+)$/m); if(a1) merchant=a1[1].trim();
-    if(!merchant){ var a2=text.match(/\d{1,2}:\d{2}(?::\d{2})?\s+(.+)$/m); if(a2) merchant=a2[1].trim(); }
+    var NS=/^(승인|취소|출금|입금|이체|결제|사용|잔액|누적|일시불|할부|안내)/;
+    var NL=/(카드|은행|계좌|승인|취소|잔액|누적|고객|회원|손님|성명|한도|현황|종류|시간|일시|일자|금액)/;
+    var cands=lines.filter(function(l){ return !/^\[.*\]/.test(l) && !/\d[\d,]*\s*원/.test(l) && /[가-힣A-Za-z]/.test(l); })
+      .map(function(l){ return l.replace(/^\d{2,4}[.\-/]\d{1,2}([.\-/]\d{1,2})?\s*/,"").replace(/^\d{1,2}:\d{2}(:\d{2})?\s*/,"").trim(); })
+      .filter(function(l){ return l && !/^\d{1,2}:\d{2}/.test(l) && !NS.test(l) && !NL.test(l) && !/님$/.test(l); });
+    merchant=cands.length?cands[cands.length-1]:"";
+    if(!merchant){
+      var a1=text.match(/\d[\d,]*\s*원\s*(.+)$/m); if(a1) merchant=a1[1].trim();
+      if(!merchant){ var a2=text.match(/\d{1,2}:\d{2}(?::\d{2})?\s+(.+)$/m); if(a2) merchant=a2[1].trim(); }
+    }
   }
   merchant=merchant.replace(/누적.*$/,"").replace(/잔액.*$/,"")
     .replace(/일시불|할부|승인|취소|출금|입금/g,"").replace(/^[^\wㄱ-힣]+|[^\wㄱ-힣]+$/g,"").trim();
   if(merchant.length>24) merchant=merchant.slice(0,24);
+
+  // 카드/계좌: 라벨 우선, 없으면 본문에서 브랜드 추정
   var accountId="";
+  var accLabel=labeled(/(?:이용카드|카드명|출금계좌|입금계좌|계좌번호|카드)\s*[:：]?\s*(.+)$/);
+  var hay=accLabel||text;
   for(var q=0;q<S.acc.length;q++) if(S.acc[q].name&&text.indexOf(S.acc[q].name)>=0){accountId=S.acc[q].id;break;}
   if(!accountId){
-    var br=text.match(/(국민|신한|삼성|현대|롯데|하나|우리|농협|카카오|토스|BC|IBK|씨티|케이뱅크|새마을|우체국)/);
-    if(br) for(var r2=0;r2<S.acc.length;r2++) if(S.acc[r2].name.indexOf(br[1])>=0){accountId=S.acc[r2].id;break;}
+    var br=(hay+" "+text).match(/(국민|신한|삼성|현대|롯데|하나|우리|농협|카카오|토스|BC|IBK|씨티|케이뱅크|새마을|우체국)/);
+    if(br){
+      var isCheck=/체크/.test(text), isCredit=/신용/.test(text);
+      var best=null;
+      for(var r2=0;r2<S.acc.length;r2++){
+        var a=S.acc[r2];
+        if(a.name.indexOf(br[1])<0) continue;
+        if(!best) best=a;
+        if(isCheck && a.type==="check_card"){ best=a; break; }
+        if(isCredit && a.type==="credit_card"){ best=a; break; }
+      }
+      if(best) accountId=best.id;
+    }
   }
+
   return {type:type,amount:amount,date:date,memo:merchant,accountId:accountId,
           category:type==="expense"?guessCat(merchant+" "+text):"etc_income"};
 }
 function splitSms(raw){
-  var b=raw.split(/\n\s*\n+/).map(function(c){return c.trim();}).filter(Boolean);
+  function merge(list){
+    // 금액이 없는 조각은 앞 조각의 이어진 내용으로 봅니다
+    var out=[];
+    list.forEach(function(c){
+      var hasAmt=/[\d,]{3,}\s*원/.test(c);
+      if(!out.length || hasAmt) out.push(c);
+      else out[out.length-1]+="\n"+c;
+    });
+    // 그래도 금액 없는 조각은 버립니다
+    return out.filter(function(c){ return /[\d,]{3,}\s*원/.test(c); });
+  }
+  var b=merge(raw.split(/\n\s*\n+/).map(function(c){return c.trim();}).filter(Boolean));
   if(b.length>1) return b;
-  return raw.replace(/\n(?=\[)/g,"\u0000").split("\u0000").map(function(c){return c.trim();}).filter(Boolean);
+  var m=merge(raw.replace(/\n(?=\[)/g,"\u0000").split("\u0000").map(function(c){return c.trim();}).filter(Boolean));
+  return m.length?m:[raw];
 }
 /* ---------- period data ---------- */
 function targetDate(){ var n=new Date(); return new Date(n.getFullYear(), n.getMonth()+S.mOff, 1); }
@@ -954,17 +1033,22 @@ function mTx(){
 
 function mSmart(){
   if(M.batch){
-    var h='<div style="font-size:12px;color:var(--inkSoft);line-height:1.6;margin-bottom:14px">저장할 항목만 남기고 체크를 해제해 주세요.</div>';
+    var h='<div style="font-size:12px;color:var(--inkSoft);line-height:1.7;margin-bottom:14px">'+
+      '읽어온 내용이에요. 각 항목을 눌러 확인·수정한 뒤 저장하거나,<br>'+
+      '체크한 항목을 한 번에 저장할 수 있어요.</div>';
     M.batch.forEach(function(b,i){
       var c=cat(b.type,b.category), a=accById(b.accountId);
-      h+='<button class="brow" data-bt="'+i+'" style="opacity:'+(b._use?1:.45)+'">'+
-        '<span class="chk '+(b._use?"on":"")+'">'+(b._use?svg("check",13,"#fff",3):"")+'</span>'+
+      h+='<div class="brow" style="opacity:'+(b._use?1:.45)+';gap:0">'+
+        '<button data-bt="'+i+'" style="padding:2px 10px 2px 2px;display:flex;align-items:center">'+
+        '<span class="chk '+(b._use?"on":"")+'">'+(b._use?svg("check",13,"#fff",3):"")+'</span></button>'+
+        '<button data-bedit="'+i+'" style="flex:1;min-width:0;display:flex;align-items:center;gap:10px;text-align:left">'+
         '<span style="flex:1;min-width:0;text-align:left"><span style="display:block;font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+
         esc(b.memo||(b.type==="income"?"입금":"결제"))+'</span>'+
         '<span style="display:block;font-size:11px;color:var(--inkSoft);margin-top:2px">'+b.date.slice(5).replace("-","/")+
         ' · '+esc(a?a.name:"미지정")+' · '+esc(c.label)+'</span></span>'+
         '<span class="num" style="font-size:14px;font-weight:700;color:'+(b.type==="income"?"var(--up)":"var(--down)")+'">'+
-        (b.type==="income"?"+":"−")+won(b.amount)+'</span></button>';
+        (b.type==="income"?"+":"−")+won(b.amount)+'</span>'+
+        svg("right",14,"var(--inkSoft)")+'</button></div>';
     });
     var n=M.batch.filter(function(b){return b._use;}).length;
     h+='<div style="display:flex;gap:8px;margin-top:14px">'+
@@ -1238,6 +1322,9 @@ function render(){
     '<button class="ib" data-search="1">'+svg("find",16)+'</button>'+
     '<button class="ib" data-settings="1">'+svg("gear",16)+'</button>'+
     '</div></div>'+body+
+    '<div style="text-align:center;padding:24px 0 8px;font-size:11px;color:var(--inkSoft);'+
+      'line-height:1.7;letter-spacing:.01em">'+esc(MADE_BY)+
+      '<span style="opacity:.55"> · v'+APP_VERSION+'</span></div>'+
     '</div>'+
     '<div class="tabs">'+
     '<button data-tab="stats" class="'+(S.tab==="stats"?"on":"")+'">'+svg("chart",19)+'통계</button>'+
@@ -1270,7 +1357,7 @@ function saveAll(){ save("transactions",S.tx); save("accounts",S.acc); save("rec
 
 /* ---------- events ---------- */
 document.addEventListener("click",function(ev){
-  var el=ev.target.closest?ev.target.closest("[data-tab],[data-nav],[data-per],[data-theme],[data-smart],[data-new],[data-edit],[data-del],[data-mask],[data-close],[data-mtype],[data-macc],[data-mcat],[data-mfrom],[data-mto],[data-mrep],[data-editcats],[data-grp],[data-acc],[data-accopen],[data-accedit],[data-accdel],[data-accmv],[data-atype],[data-alink],[data-asave],[data-rtog],[data-rdel],[data-cats],[data-exp],[data-imp],[data-smsgo],[data-bt],[data-bback],[data-bsave],[data-cmv],[data-cedit],[data-cdel],[data-cnew],[data-cicon],[data-ccol],[data-ccommit],[data-csave],[data-quick],[data-search],[data-fty],[data-fcat],[data-budget],[data-bsaveall],[data-paycard],[data-settings],[data-tag],[data-copybk],#save"):null;
+  var el=ev.target.closest?ev.target.closest("[data-tab],[data-nav],[data-per],[data-theme],[data-smart],[data-new],[data-edit],[data-del],[data-mask],[data-close],[data-mtype],[data-macc],[data-mcat],[data-mfrom],[data-mto],[data-mrep],[data-editcats],[data-grp],[data-acc],[data-accopen],[data-accedit],[data-accdel],[data-accmv],[data-atype],[data-alink],[data-asave],[data-rtog],[data-rdel],[data-cats],[data-exp],[data-imp],[data-smsgo],[data-bt],[data-bback],[data-bsave],[data-cmv],[data-cedit],[data-cdel],[data-cnew],[data-cicon],[data-ccol],[data-ccommit],[data-csave],[data-quick],[data-search],[data-fty],[data-fcat],[data-budget],[data-bsaveall],[data-paycard],[data-settings],[data-tag],[data-copybk],[data-bedit],#save"):null;
   if(!el) return;
   var d=el.dataset||{};
 
@@ -1329,6 +1416,10 @@ document.addEventListener("click",function(ev){
     M=newTxState(one); M.pre=true; render(); return;
   }
   if(d.bt){ var i2=+d.bt; M.batch[i2]._use=!M.batch[i2]._use; render(); return; }
+  if(d.bedit){
+    var bi=+d.bedit, item=M.batch[bi];
+    var st=newTxState(item); st.pre=true; st.batchFrom={list:M.batch,idx:bi};
+    M=st; render(); return; }
   if(d.bback!==undefined){ M.batch=null; M.err=""; render(); return; }
   if(d.bsave!==undefined){
     M.batch.filter(function(b){return b._use;}).forEach(function(b){
@@ -1516,6 +1607,7 @@ function commitTx(){
   if(rec&&rec.recurringId) o.recurringId=rec.recurringId;
   if(isT){ o.fromAccountId=M.from; o.toAccountId=M.to; }
   else { o.category=M.cat; o.accountId=M.acc; }
+  var fromBatch=M.batchFrom;
   if(M.editId) S.tx=S.tx.map(function(x){ return x.id===M.editId?o:x; });
   else{
     S.tx.push(o);
@@ -1526,7 +1618,12 @@ function commitTx(){
       S.rec.push(r); save("recurring",S.rec);
     }
   }
-  save("transactions",S.tx); M=null; render();
+  save("transactions",S.tx);
+  if(fromBatch){
+    var rest=fromBatch.list.filter(function(_,i){ return i!==fromBatch.idx; });
+    M = rest.length ? {sms:"",err:"",batch:rest} : null;
+  } else M=null;
+  render();
 }
 function commitAcc(){
   syncAcc();
