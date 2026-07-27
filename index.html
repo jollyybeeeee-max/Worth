@@ -163,7 +163,7 @@ svg{display:block}
 "use strict";
 
 /* ---------- version ---------- */
-var APP_VERSION = "2026.07.27.11";
+var APP_VERSION = "2026.07.27.13";
 var MADE_BY = "₩orth — crafted by JE:P";   // 여기 문구를 바꾸면 하단 표시가 바뀝니다
 
 /* ---------- storage ---------- */
@@ -580,6 +580,24 @@ function vHome(){
   });
   return h;
 }
+function netWorthCard(){
+  var bucket={};
+  S.tx.forEach(function(x){ if(x.type==="transfer") return;
+    var ym=x.date.slice(0,7); bucket[ym]=(bucket[ym]||0)+(x.type==="income"?x.amount:-x.amount); });
+  var base=new Date(), run=totalAssets(), nw=[];
+  for(var i=11;i>=0;i--){ var d2=new Date(base.getFullYear(),base.getMonth()-i,1);
+    nw.push({ym:d2.getFullYear()+"-"+pad(d2.getMonth()+1),label:String(d2.getMonth()+1),value:0}); }
+  for(var j=nw.length-1;j>=0;j--){ nw[j].value=run; run-=(bucket[nw[j].ym]||0); }
+  var h='<div class="card"><div class="ttl">자산 추이</div>';
+  if(!S.acc.length) h+='<div style="padding:18px 0;text-align:center;font-size:13px;color:var(--inkSoft)">자산을 등록하면 변화가 보여요.</div>';
+  else{
+    h+=areaChart(nw);
+    var df=nw[nw.length-1].value-nw[0].value;
+    if(df) h+='<div style="text-align:center;font-size:12px;color:var(--inkMid);margin-top:4px">최근 1년 <b style="color:'+
+      (df>0?"var(--up)":"var(--down)")+'">'+(df>0?"+":"−")+won(Math.abs(df))+'원</b></div>';
+  }
+  return h+'</div>';
+}
 function budgetCard(list){
   var keys=Object.keys(S.budgets).filter(function(k){ return S.budgets[k]>0; });
   if(!keys.length) return "";
@@ -675,25 +693,6 @@ function vStats(){
   }
   h+='</div>';
 
-  // net worth
-  var nw=[],bucket={};
-  S.tx.forEach(function(x){ if(x.type==="transfer") return;
-    var ym=x.date.slice(0,7); bucket[ym]=(bucket[ym]||0)+(x.type==="income"?x.amount:-x.amount); });
-  var base=new Date(),run=totalAssets(),tmp=[];
-  for(var i=11;i>=0;i--){ var d2=new Date(base.getFullYear(),base.getMonth()-i,1);
-    tmp.push({ym:d2.getFullYear()+"-"+pad(d2.getMonth()+1),label:String(d2.getMonth()+1),value:0}); }
-  for(var j=tmp.length-1;j>=0;j--){ tmp[j].value=run; run-=(bucket[tmp[j].ym]||0); }
-  nw=tmp;
-  h+='<div class="card"><div class="ttl">자산 추이</div>';
-  if(!S.acc.length) h+='<div style="padding:18px 0;text-align:center;font-size:13px;color:var(--inkSoft)">자산을 등록하면 변화가 보여요.</div>';
-  else{
-    h+=areaChart(nw);
-    var df=nw[nw.length-1].value-nw[0].value;
-    if(df) h+='<div style="text-align:center;font-size:12px;color:var(--inkMid);margin-top:4px">최근 1년 <b style="color:'+
-      (df>0?"var(--up)":"var(--down)")+'">'+(df>0?"+":"−")+won(Math.abs(df))+'원</b></div>';
-  }
-  h+='</div>';
-
   // by category
   var cm={},ct=0;
   list.forEach(function(x){ if(x.type!=="expense") return; cm[x.category]=(cm[x.category]||0)+x.amount; ct+=x.amount; });
@@ -754,7 +753,8 @@ function vAssets(){
   var h='<div class="hero"><div class="lbl">총 자산</div>'+
     '<div class="big num">'+won(totalAssets())+'<small>원</small></div>'+
     '<div style="font-size:11.5px;color:var(--inkMid);margin-top:10px">기록한 수입·지출이 각 자산에 자동 반영됩니다</div></div>';
-  h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:16px 4px 10px">'+
+  h+='<div style="height:14px"></div>'+netWorthCard();
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 4px 10px">'+
     '<b style="font-size:13px;font-weight:800">자산</b><div style="display:flex;gap:10px">'+
     '<button data-grp="1" style="font-size:11.5px;font-weight:700;padding:5px 10px;border-radius:8px;'+
     (S.grouped?'background:var(--accentSoft);color:var(--accent)':'color:var(--inkSoft)')+'">종류별</button>'+
@@ -1019,6 +1019,17 @@ function mAcc(){
   return sheet(M.editId?"자산 수정":"자산 추가",h);
 }
 
+function mBackupText(){
+  var h='<div style="font-size:12.5px;color:var(--inkSoft);line-height:1.7;margin-bottom:14px">'+
+    '이 기기에서는 파일 저장이 막혀 있어요.<br>'+
+    '아래 내용을 전체 복사해서 메모장 같은 곳에 붙여넣어 두시면<br>'+
+    '나중에 그대로 불러올 수 있어요.</div>'+
+    '<textarea class="fld" id="bkt" rows="7" readonly style="font-size:11px;line-height:1.5">'+
+      esc(M.backupText)+'</textarea>'+
+    '<button class="go" data-copybk="1">전체 복사하기</button>'+
+    (M.copied?'<div style="text-align:center;font-size:12px;color:var(--up);font-weight:700;margin-top:10px">복사했어요</div>':'');
+  return sheet("백업 내용",h);
+}
 function mSettings(){
   var h='<div class="lb">화면</div>'+
     '<button class="tog '+(S.theme==="dark"?"on":"")+'" data-theme="1" style="margin-bottom:18px">'+
@@ -1241,7 +1252,8 @@ function render(){
   if(UPDATE_READY) h+='<button id="upd" style="position:fixed;left:50%;transform:translateX(-50%);bottom:74px;'+
     'z-index:40;background:var(--ink);color:var(--bg);border-radius:999px;padding:10px 18px;'+
     'font-size:12.5px;font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,.25)">새 버전이 있어요 · 새로고침</button>';
-  if(M) h+= M.tag!==undefined ? mTag()
+  if(M) h+= M.backupText!==undefined ? mBackupText()
+          : M.tag!==undefined ? mTag()
           : M.settings ? mSettings()
           : M.vals!==undefined ? mBudget()
           : M.ftype!==undefined ? mSearch()
@@ -1258,7 +1270,7 @@ function saveAll(){ save("transactions",S.tx); save("accounts",S.acc); save("rec
 
 /* ---------- events ---------- */
 document.addEventListener("click",function(ev){
-  var el=ev.target.closest?ev.target.closest("[data-tab],[data-nav],[data-per],[data-theme],[data-smart],[data-new],[data-edit],[data-del],[data-mask],[data-close],[data-mtype],[data-macc],[data-mcat],[data-mfrom],[data-mto],[data-mrep],[data-editcats],[data-grp],[data-acc],[data-accopen],[data-accedit],[data-accdel],[data-accmv],[data-atype],[data-alink],[data-asave],[data-rtog],[data-rdel],[data-cats],[data-exp],[data-imp],[data-smsgo],[data-bt],[data-bback],[data-bsave],[data-cmv],[data-cedit],[data-cdel],[data-cnew],[data-cicon],[data-ccol],[data-ccommit],[data-csave],[data-quick],[data-search],[data-fty],[data-fcat],[data-budget],[data-bsaveall],[data-paycard],[data-settings],[data-tag],#save"):null;
+  var el=ev.target.closest?ev.target.closest("[data-tab],[data-nav],[data-per],[data-theme],[data-smart],[data-new],[data-edit],[data-del],[data-mask],[data-close],[data-mtype],[data-macc],[data-mcat],[data-mfrom],[data-mto],[data-mrep],[data-editcats],[data-grp],[data-acc],[data-accopen],[data-accedit],[data-accdel],[data-accmv],[data-atype],[data-alink],[data-asave],[data-rtog],[data-rdel],[data-cats],[data-exp],[data-imp],[data-smsgo],[data-bt],[data-bback],[data-bsave],[data-cmv],[data-cedit],[data-cdel],[data-cnew],[data-cicon],[data-ccol],[data-ccommit],[data-csave],[data-quick],[data-search],[data-fty],[data-fcat],[data-budget],[data-bsaveall],[data-paycard],[data-settings],[data-tag],[data-copybk],#save"):null;
   if(!el) return;
   var d=el.dataset||{};
 
@@ -1386,6 +1398,17 @@ document.addEventListener("click",function(ev){
   if(d.cats){ M={kind:d.cats,list:(d.cats==="income"?S.icats:S.ecats).slice(),edit:null,
     back:M&&M.settings?{settings:true}:null}; render(); return; }
   if(d.exp!==undefined){ doExport(); return; }
+  if(d.copybk!==undefined){
+    var ta=document.getElementById("bkt");
+    if(ta){
+      try{ ta.removeAttribute("readonly"); ta.select(); ta.setSelectionRange(0,999999); }catch(e){}
+      var done=false;
+      try{ done=document.execCommand("copy"); }catch(e){}
+      try{ if(navigator.clipboard && !done){ navigator.clipboard.writeText(M.backupText); done=true; } }catch(e){}
+      try{ ta.setAttribute("readonly","readonly"); }catch(e){}
+      M.copied=done; render();
+    }
+    return; }
   if(d.imp!==undefined){ var f=document.getElementById("impf"); if(f) f.click(); return; }
 
   // category manager
@@ -1521,21 +1544,34 @@ function commitAcc(){
 /* ---------- backup ---------- */
 function doExport(){
   var payload={app:"worth",version:1,exportedAt:new Date().toISOString(),
-    transactions:S.tx,accounts:S.acc,recurring:S.rec,expenseCats:S.ecats,incomeCats:S.icats};
-  var txt=JSON.stringify(payload,null,2);
+    transactions:S.tx,accounts:S.acc,recurring:S.rec,expenseCats:S.ecats,incomeCats:S.icats,budgets:S.budgets};
+  var txt=JSON.stringify(payload);
+  var name="worth-backup-"+today()+".json";
+
+  // 1) iOS 홈화면 앱에서는 다운로드가 막히므로 공유 시트를 먼저 시도
+  try{
+    if(navigator.share && navigator.canShare){
+      var f=new File([txt],name,{type:"application/json"});
+      if(navigator.canShare({files:[f]})){
+        navigator.share({files:[f],title:"₩orth 백업"}).catch(function(){});
+        return;
+      }
+    }
+  }catch(e){}
+
+  // 2) 일반 브라우저: 파일로 저장
   try{
     var blob=new Blob([txt],{type:"application/json"});
     var url=URL.createObjectURL(blob);
     var a=document.createElement("a");
-    a.href=url; a.download="worth-backup-"+today()+".json";
+    a.href=url; a.download=name;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(function(){ URL.revokeObjectURL(url); },1000);
-  }catch(e){
-    // some in-app browsers block downloads: show the text so it can be copied
-    var w=window.open("","_blank");
-    if(w){ w.document.write("<pre>"+esc(txt)+"</pre>"); }
-    else alert("이 브라우저에서는 파일 저장이 막혀 있어요. 사파리나 크롬에서 열어주세요.");
-  }
+    return;
+  }catch(e){}
+
+  // 3) 둘 다 막히면 앱 안에서 직접 복사할 수 있게
+  M={backupText:txt}; render();
 }
 function doImport(file){
   var fr=new FileReader();
@@ -1548,6 +1584,7 @@ function doImport(file){
       S.tx=d.transactions; S.acc=d.accounts; S.rec=d.recurring||[];
       if(d.expenseCats&&d.expenseCats.length) S.ecats=d.expenseCats;
       if(d.incomeCats&&d.incomeCats.length) S.icats=d.incomeCats;
+      if(d.budgets && typeof d.budgets==="object") { S.budgets=d.budgets; save("budgets",S.budgets); }
       saveAll(); M=null; render(); alert("불러오기가 끝났어요.");
     }catch(e){ alert("파일을 읽지 못했어요."); }
   };
