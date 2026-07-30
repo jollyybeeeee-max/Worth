@@ -201,9 +201,13 @@ svg{display:block}
 "use strict";
 
 /* ---------- version ---------- */
-var APP_VERSION = "2026.07.30.3";
+var APP_VERSION = "2026.07.30.4";
 // 업데이트 기록 — 새 버전을 낼 때 맨 위에 한 줄씩 추가합니다
 var CHANGELOG = [
+  { v:"2026.07.30.4", items:[
+    "자산 순서 바꾸기가 안 되던 문제를 고쳤어요",
+    "분류 순서를 바꿀 때 버벅이던 것을 개선했어요"
+  ]},
   { v:"2026.07.30.3", items:[
     "거래 내역을 왼쪽으로 밀어서 삭제할 수 있어요",
     "항상 보이던 휴지통 버튼을 없앴어요"
@@ -2057,102 +2061,123 @@ catch(e){
 /* ---------- 끌어서 순서 바꾸기 ---------- */
 var DRAG = null;
 
-function dragTargetAt(x, y) {
-  if (!document.elementFromPoint) return null;
-  var el = document.elementFromPoint(x, y);
-  if (!el || !el.closest) return null;
-  return el.closest("[data-drag]");
-}
-
 function dragParse(h) {
-  var v = h.getAttribute ? h.getAttribute("data-drag") : null;
+  var v = h && h.getAttribute ? h.getAttribute("data-drag") : null;
   if (!v) return null;
   var p = v.split("|");
   return { kind: p[0], key: p[1] };
 }
 
+// 드래그 중에는 화면을 다시 그리지 않고, 실제 요소만 자리바꿈합니다.
+// (다시 그리면 잡고 있던 손잡이가 사라져 드래그가 끊깁니다)
+function dragRowOf(handle) {
+  if (!handle || !handle.closest) return null;
+  return DRAG && DRAG.kind === "acc" ? handle.closest(".acc") : handle.closest(".brow");
+}
+
 function dragBegin(h) {
   var d = dragParse(h);
   if (!d) return false;
-  if (d.kind === "acc") {
-    if (S.grouped) return false;                 // 종류별 보기에서는 순서 개념이 없음
-    DRAG = { kind: "acc", id: d.key };
-  } else if (d.kind === "cat") {
-    DRAG = { kind: "cat", idx: parseInt(d.key, 10) };
-  } else return false;
-  document.body && document.body.classList && document.body.classList.add
-    ? document.body.classList.add("nosel") : null;
+  if (d.kind === "acc" && S.grouped) return false;   // 종류별 보기에선 순서 개념 없음
+  var row = h.closest ? (d.kind === "acc" ? h.closest(".acc") : h.closest(".brow")) : null;
+  if (!row) return false;
+  DRAG = { kind: d.kind, key: d.key, row: row };
+  if (row.classList && row.classList.add) row.classList.add("dragging");
   return true;
 }
 
-function dragMoveTo(h) {
-  if (!DRAG) return;
+function dragOver(h) {
+  if (!DRAG || !h) return;
   var d = dragParse(h);
-  if (!d || d.kind !== DRAG.kind) return;
+  if (!d || d.kind !== DRAG.kind || d.key === DRAG.key) return;
+  var over = dragRowOf(h);
+  var row = DRAG.row;
+  if (!over || !row || over === row || !row.parent) return;
 
-  if (DRAG.kind === "acc") {
-    var from = -1, to = -1;
-    for (var i = 0; i < S.acc.length; i++) {
-      if (S.acc[i].id === DRAG.id) from = i;
-      if (S.acc[i].id === d.key) to = i;
-    }
-    if (from < 0 || to < 0 || from === to) return;
-    var moved = S.acc.splice(from, 1)[0];
-    S.acc.splice(to, 0, moved);
-    render();
-  } else {
-    var t = parseInt(d.key, 10);
-    var lastIdx = M && M.list ? M.list.length - 1 : -1;
-    // 맨 아래 기본 분류는 자리를 지킵니다
-    if (t >= lastIdx || DRAG.idx >= lastIdx || t === DRAG.idx) return;
-    var mv = M.list.splice(DRAG.idx, 1)[0];
-    M.list.splice(t, 0, mv);
-    DRAG.idx = t;
-    repaintSheet();
+  var kids = row.parent.children.filter(function (n) { return !n.isText; });
+  var iFrom = kids.indexOf(row), iTo = kids.indexOf(over);
+  if (iFrom < 0 || iTo < 0) return;
+
+  // 분류 목록에서 맨 아래 기본 분류는 자리를 지킵니다
+  if (DRAG.kind === "cat") {
+    var rows = kids.filter(function (n) { return n.classList && n.classList.contains("brow"); });
+    if (rows.length && over === rows[rows.length - 1]) return;
   }
+
+  // DOM 상에서 실제로 위치를 바꿉니다
+  var arr = row.parent.children;
+  var ai = arr.indexOf(row);
+  arr.splice(ai, 1);
+  var bi = arr.indexOf(over);
+  arr.splice(iFrom < iTo ? bi + 1 : bi, 0, row);
+  DRAG.moved = true;
 }
 
+// 놓았을 때 화면 순서를 읽어 데이터에 반영합니다
 function dragEnd() {
   if (!DRAG) return;
-  if (DRAG.kind === "acc") save("accounts", S.acc);
-  DRAG = null;
-  if (document.body && document.body.classList && document.body.classList.remove)
-    document.body.classList.remove("nosel");
-  if (S.tab === "assets") render(); else repaintSheet();
+  var d = DRAG; DRAG = null;
+  if (d.row && d.row.classList && d.row.classList.remove) d.row.classList.remove("dragging");
+  if (!d.moved) return;
+
+  var parent = d.row.parent;
+  if (!parent) return;
+  var order = [];
+  parent.children.forEach(function (n) {
+    if (n.isText || !n.querySelector) return;
+    var h = n.querySelector("[data-drag]");
+    if (h) order.push(dragParse(h).key);
+  });
+
+  if (d.kind === "acc") {
+    var byId = {};
+    S.acc.forEach(function (a) { byId[a.id] = a; });
+    var next = [];
+    order.forEach(function (id) { if (byId[id]) { next.push(byId[id]); delete byId[id]; } });
+    S.acc.forEach(function (a) { if (byId[a.id]) next.push(a); });   // 손잡이 없는 항목 보존
+    S.acc = next;
+    save("accounts", S.acc);
+    render();
+  } else if (M && M.list) {
+    var old = M.list.slice();
+    var next2 = [];
+    order.forEach(function (i) { var it = old[parseInt(i, 10)]; if (it) next2.push(it); });
+    old.forEach(function (it) { if (next2.indexOf(it) < 0) next2.push(it); });
+    M.list = next2;
+    repaintSheet();
+  }
 }
 
 document.addEventListener("touchstart", function (e) {
   var t = e.target.closest && e.target.closest("[data-drag]");
   if (!t) return;
-  if (dragBegin(t)) {
-    e.preventDefault();
-    if (S.tab === "assets" && DRAG.kind === "acc") render();
-  }
+  if (dragBegin(t)) e.preventDefault();
 }, { passive: false });
 
 document.addEventListener("touchmove", function (e) {
   if (!DRAG || !e.touches || !e.touches[0]) return;
   e.preventDefault();
-  var h = dragTargetAt(e.touches[0].clientX, e.touches[0].clientY);
-  if (h) dragMoveTo(h);
+  if (!document.elementFromPoint) return;
+  var el = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+  var h = el && el.closest ? el.closest("[data-drag]") : null;
+  if (h) dragOver(h);
 }, { passive: false });
 
 document.addEventListener("touchend", function () { dragEnd(); });
 document.addEventListener("touchcancel", function () { dragEnd(); });
 
-// 마우스로도 (PC에서 확인용)
+// 마우스로도 (PC 확인용)
 document.addEventListener("mousedown", function (e) {
   var t = e.target.closest && e.target.closest("[data-drag]");
-  if (!t) return;
-  if (dragBegin(t)) e.preventDefault();
+  if (t && dragBegin(t)) e.preventDefault();
 });
 document.addEventListener("mousemove", function (e) {
-  if (!DRAG) return;
-  var h = dragTargetAt(e.clientX, e.clientY);
-  if (h) dragMoveTo(h);
+  if (!DRAG || !document.elementFromPoint) return;
+  var el = document.elementFromPoint(e.clientX, e.clientY);
+  var h = el && el.closest ? el.closest("[data-drag]") : null;
+  if (h) dragOver(h);
 });
 document.addEventListener("mouseup", function () { dragEnd(); });
-
 
 /* ---------- 옆으로 밀어 삭제 ---------- */
 var SWIPE_OPEN = null;   // 열려 있는 줄의 id
