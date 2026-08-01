@@ -201,17 +201,23 @@ svg{display:block}
 "use strict";
 
 /* ---------- version ---------- */
-var APP_VERSION = "2026.07.30.5";
-// 업데이트 기록 — 새 버전을 낼 때 맨 위에 한 줄씩 추가합니다
+// 두 자리 숫자로 씁니다. 바꿀 때마다 1씩 올리고 아래 기록에 한 줄 추가하세요
+var APP_VERSION = "05";
 var CHANGELOG = [
-  { v:"2026.07.30.5", items:[
+  { v:"05", items:[
+    "버전 표기를 01, 02 형식으로 바꿨어요"
+  ]},
+  { v:"04", items:[
+    "지출·수입 분류를 추가할 수 없던 문제를 고쳤어요"
+  ]},
+  { v:"03", items:[
     "자산·분류 순서 바꾸기가 실제로 동작하도록 고쳤어요"
   ]},
-  { v:"2026.07.30.3", items:[
+  { v:"02", items:[
     "거래 내역을 왼쪽으로 밀어서 삭제할 수 있어요",
     "항상 보이던 휴지통 버튼을 없앴어요"
   ]},
-  { v:"2026.07.30.2", items:[
+  { v:"01", items:[
     "자산과 지출·수입 분류의 순서를 손잡이로 끌어서 바꿀 수 있어요"
   ]}
 ];
@@ -2181,7 +2187,7 @@ document.addEventListener("mouseup", function () { dragEnd(); });
 
 /* ---------- 옆으로 밀어 삭제 ---------- */
 var SWIPE_OPEN = null;   // 열려 있는 줄의 id
-var SW = null;           // 진행 중인 스와이프
+var SWIPE = null;           // 진행 중인 스와이프
 
 function swRowOf(el) {
   return el && el.closest ? el.closest("[data-sw]") : null;
@@ -2210,7 +2216,7 @@ document.addEventListener("touchstart", function (e) {
   // 삭제 버튼 자체를 누른 경우는 클릭으로 처리
   if (e.target.closest && e.target.closest(".swdel")) return;
   var id = wrap.getAttribute("data-sw");
-  SW = {
+  SWIPE = {
     id: id, wrap: wrap, inner: swInner(wrap),
     x0: e.touches[0].clientX, y0: e.touches[0].clientY,
     base: (SWIPE_OPEN === id ? -84 : 0),
@@ -2219,29 +2225,29 @@ document.addEventListener("touchstart", function (e) {
 }, { passive: true });
 
 document.addEventListener("touchmove", function (e) {
-  if (!SW || DRAG || !e.touches || !e.touches[0]) return;
-  var dx = e.touches[0].clientX - SW.x0;
-  var dy = e.touches[0].clientY - SW.y0;
+  if (!SWIPE || DRAG || !e.touches || !e.touches[0]) return;
+  var dx = e.touches[0].clientX - SWIPE.x0;
+  var dy = e.touches[0].clientY - SWIPE.y0;
 
-  if (!SW.axis) {
+  if (!SWIPE.axis) {
     if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
-    SW.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
-    if (SW.axis === "x" && SW.inner && SW.inner.classList && SW.inner.classList.add)
-      SW.inner.classList.add("swdrag");
+    SWIPE.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+    if (SWIPE.axis === "x" && SWIPE.inner && SWIPE.inner.classList && SWIPE.inner.classList.add)
+      SWIPE.inner.classList.add("swdrag");
   }
-  if (SW.axis !== "x") return;      // 위아래로 움직이면 그냥 스크롤
+  if (SWIPE.axis !== "x") return;      // 위아래로 움직이면 그냥 스크롤
 
   e.preventDefault();
-  var x = SW.base + dx;
+  var x = SWIPE.base + dx;
   if (x > 0) x = 0;                  // 오른쪽으로는 안 열림
   if (x < -110) x = -110;            // 너무 많이 끌리지 않게
-  swSetX(SW.inner, x);
-  SW.last = x;
+  swSetX(SWIPE.inner, x);
+  SWIPE.last = x;
 }, { passive: false });
 
 document.addEventListener("touchend", function () {
-  if (!SW) return;
-  var s = SW; SW = null;
+  if (!SWIPE) return;
+  var s = SWIPE; SWIPE = null;
   if (s.axis !== "x") return;
   if (s.inner && s.inner.classList && s.inner.classList.remove) s.inner.classList.remove("swdrag");
   var x = (s.last === undefined ? s.base : s.last);
@@ -2256,11 +2262,11 @@ document.addEventListener("touchend", function () {
   }
 });
 document.addEventListener("touchcancel", function () {
-  if (SW && SW.inner && SW.inner.classList && SW.inner.classList.remove) {
-    SW.inner.classList.remove("swdrag");
-    swSetX(SW.inner, 0);
+  if (SWIPE && SWIPE.inner && SWIPE.inner.classList && SWIPE.inner.classList.remove) {
+    SWIPE.inner.classList.remove("swdrag");
+    swSetX(SWIPE.inner, 0);
   }
-  SW = null;
+  SWIPE = null;
 });
 
 </script>
