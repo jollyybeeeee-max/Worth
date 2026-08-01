@@ -202,8 +202,11 @@ svg{display:block}
 
 /* ---------- version ---------- */
 // 두 자리 숫자로 씁니다. 바꿀 때마다 1씩 올리고 아래 기록에 한 줄 추가하세요
-var APP_VERSION = "05";
+var APP_VERSION = "06";
 var CHANGELOG = [
+  { v:"06", items:[
+    "예산 설정에서 분류별 금액의 합계를 볼 수 있어요"
+  ]},
   { v:"05", items:[
     "버전 표기를 01, 02 형식으로 바꿨어요"
   ]},
@@ -1400,8 +1403,39 @@ function mBudget(){
       '<input class="fld num" data-bk="'+c.key+'" inputmode="numeric" placeholder="없음" style="margin:0;flex:1" value="'+
       (M.vals[c.key]?Number(M.vals[c.key]).toLocaleString("ko-KR"):"")+'"></div>';
   });
+  h+='<div id="bsum">'+budgetSumHtml()+'</div>';
   h+='<button class="go" data-bsaveall="1">저장하기</button>';
   return sheet("예산 설정",h);
+}
+
+// 분류별 합계 요약 — 입력할 때마다 이 부분만 갈아끼웁니다 (포커스 유지)
+function budgetSumHtml(){
+  if(!M || !M.vals) return "";
+  var catSum=0;
+  S.ecats.forEach(function(c){ catSum += parseInt(M.vals[c.key],10)||0; });
+  var total = parseInt(M.vals.__total__,10)||0;
+  var h="";
+  if(catSum>0){
+    var diff = total - catSum;
+    h+='<div style="background:var(--bg);border-radius:12px;padding:13px 14px;margin-top:4px">'+
+      '<div style="display:flex;align-items:baseline;gap:8px">'+
+      '<span style="font-size:12.5px;font-weight:700">분류 합계</span>'+
+      '<span style="flex:1"></span>'+
+      '<span class="num" style="font-size:14px;font-weight:800">'+won(catSum)+'</span>'+
+      '<span style="font-size:11.5px;color:var(--inkSoft)">원</span></div>';
+    if(total>0){
+      h+='<div style="display:flex;align-items:baseline;gap:8px;margin-top:7px;padding-top:7px;'+
+        'border-top:1px solid var(--line)">'+
+        '<span style="font-size:11.5px;color:var(--inkMid)">전체 예산 '+won(total)+'원</span>'+
+        '<span style="flex:1"></span>'+
+        '<span class="num" style="font-size:11.5px;font-weight:700;color:'+
+          (diff<0?"var(--down)":"var(--up)")+'">'+
+          (diff<0 ? won(-diff)+"원 초과" : diff>0 ? won(diff)+"원 남음" : "딱 맞음")+
+        '</span></div>';
+    }
+    h+='</div>';
+  }
+  return h;
 }
 function mTag(){
   var tag=M.tag;
@@ -1898,6 +1932,8 @@ document.addEventListener("input",function(e){
   if(e.target.getAttribute && e.target.getAttribute("data-bk")){
     var k=e.target.getAttribute("data-bk"), v=e.target.value.replace(/[^0-9]/g,"");
     M.vals[k]=v; e.target.value=v?Number(v).toLocaleString("ko-KR"):"";
+    var sumBox=document.getElementById("bsum");
+    if(sumBox) sumBox.innerHTML=budgetSumHtml();
     return; }
   if(e.target.id==="ainit"){
     var v2=e.target.value.replace(/[^0-9]/g,"");
