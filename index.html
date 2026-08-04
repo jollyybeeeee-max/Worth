@@ -205,8 +205,13 @@ svg{display:block}
 
 /* ---------- version ---------- */
 // 두 자리 숫자로 씁니다. 바꿀 때마다 1씩 올리고 아래 기록에 한 줄 추가하세요
-var APP_VERSION = "11";
+var APP_VERSION = "12";
 var CHANGELOG = [
+  { v:"12", items:[
+    "내역에서 지출만·수입만 골라 볼 수 있어요",
+    "예산을 통계 화면으로 옮겼어요",
+    "금액 입력의 ← 버튼을 없앴어요 (키패드에 있어요)"
+  ]},
   { v:"11", items:[
     "＝ 와 ← 버튼 순서를 바꿨어요"
   ]},
@@ -410,6 +415,7 @@ var S = {
   mOff: 0, yOff: 0,
   period: "month",
   grouped: false,
+  homeFilter: "all",      // 내역 탭: 전체 / 지출만 / 수입만
   openAcc: null,
   modal: null
 };
@@ -771,7 +777,12 @@ function vHome(){
       '<div><div class="k">남은 금액</div><div class="v num" style="color:'+
         ((inc-exp)<0?"var(--down)":"var(--ink)")+'">'+won(inc-exp)+'</div></div>'+
     '</div></div>';
-  h+=budgetCard(list);
+  // 지출만 / 수입만 보기
+  h+='<div class="seg" style="margin:14px 0 4px">'+
+    [["all","전체"],["expense","지출"],["income","수입"]].map(function(t){
+      return '<button data-hf="'+t[0]+'" class="'+(S.homeFilter===t[0]?"on":"")+'">'+t[1]+'</button>';
+    }).join("")+'</div>';
+  if(S.homeFilter!=="all") list=list.filter(function(x){ return x.type===S.homeFilter; });
   if(!list.length) return h+'<div class="empty" style="margin-top:14px">이번 달 기록이 없어요.<br>위 기록 버튼으로 첫 거래를 남겨보세요.</div>';
   var groups={},order=[];
   list.forEach(function(x){ if(!groups[x.date]){groups[x.date]=[];order.push(x.date);} groups[x.date].push(x); });
@@ -931,6 +942,8 @@ function vStats(){
   list.forEach(function(x){ if(x.type!=="expense") return; cm[x.category]=(cm[x.category]||0)+x.amount; ct+=x.amount; });
   var citems=Object.keys(cm).map(function(k){ var c=cat("expense",k);
     return {name:c.label,value:cm[k],color:c.color}; }).sort(function(a,b){return b.value-a.value;});
+  if(!isY) h+=budgetCard(list);   // 예산은 한 달 기준이라 월별 보기에서만
+
   h+='<div class="card"><div class="ttl">카테고리별 지출</div>';
   if(!ct) h+='<div style="padding:18px 0;text-align:center;font-size:13px;color:var(--inkSoft)">'+(isY?"이 해":"이번 달")+' 지출이 없어요.</div>';
   else{
@@ -1184,7 +1197,6 @@ function mTx(){
       '<button class="opb" data-op="*">×</button>'+
       '<button class="opb" data-op="/">÷</button>'+
       '<button class="opb" data-op="=" style="background:var(--accentSoft);color:var(--accent)">＝</button>'+
-      '<button class="opb" data-op="bs" style="color:var(--inkSoft)">←</button>'+
     '</div>';
 
   if(isT){
@@ -1784,7 +1796,7 @@ function saveAll(){ save("transactions",S.tx); save("accounts",S.acc); save("rec
 
 /* ---------- events ---------- */
 document.addEventListener("click",function(ev){
-  var el=ev.target.closest?ev.target.closest("[data-tab],[data-nav],[data-per],[data-theme],[data-smart],[data-new],[data-edit],[data-del],[data-mask],[data-close],[data-mtype],[data-macc],[data-mcat],[data-mfrom],[data-mto],[data-mrep],[data-editcats],[data-grp],[data-acc],[data-accopen],[data-accedit],[data-accdel],[data-accmv],[data-atype],[data-alink],[data-asave],[data-rtog],[data-rdel],[data-cats],[data-exp],[data-imp],[data-smsgo],[data-bt],[data-bback],[data-bsave],[data-cmv],[data-cedit],[data-cdel],[data-cnew],[data-cicon],[data-ccol],[data-ccommit],[data-csave],[data-quick],[data-search],[data-fty],[data-fcat],[data-budget],[data-bsaveall],[data-paycard],[data-settings],[data-tag],[data-copybk],[data-bedit],[data-fper],[data-wipetx],[data-wipeall],[data-hidetot],[data-accmon],[data-changelog],[data-op],#save"):null;
+  var el=ev.target.closest?ev.target.closest("[data-tab],[data-nav],[data-per],[data-theme],[data-smart],[data-new],[data-edit],[data-del],[data-mask],[data-close],[data-mtype],[data-macc],[data-mcat],[data-mfrom],[data-mto],[data-mrep],[data-editcats],[data-grp],[data-acc],[data-accopen],[data-accedit],[data-accdel],[data-accmv],[data-atype],[data-alink],[data-asave],[data-rtog],[data-rdel],[data-cats],[data-exp],[data-imp],[data-smsgo],[data-bt],[data-bback],[data-bsave],[data-cmv],[data-cedit],[data-cdel],[data-cnew],[data-cicon],[data-ccol],[data-ccommit],[data-csave],[data-quick],[data-search],[data-fty],[data-fcat],[data-budget],[data-bsaveall],[data-paycard],[data-settings],[data-tag],[data-copybk],[data-bedit],[data-fper],[data-wipetx],[data-wipeall],[data-hidetot],[data-accmon],[data-changelog],[data-op],[data-hf],#save"):null;
   if(!el) return;
   var d=el.dataset||{};
 
@@ -1800,6 +1812,7 @@ document.addEventListener("click",function(ev){
   if(d.theme!==undefined){
     S.theme = S.theme==="dark" ? "light" : "dark";
     save("theme",S.theme); render(); return; }
+  if(d.hf){ S.homeFilter=d.hf; render(); return; }
   if(d.grp!==undefined){ S.grouped=!S.grouped; render(); return; }
 
   if(d.smart!==undefined){ M={sms:"",err:"",batch:null}; render(); return; }
