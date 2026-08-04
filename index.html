@@ -151,6 +151,9 @@ body::before{content:"";position:fixed;inset:-2px;background:var(--bg);z-index:0
   color:var(--ink);outline:none;margin-bottom:10px;font-size:15px;line-height:1.5;resize:none;display:block}
 .amtin{width:100%;text-align:center;font-size:34px;font-weight:800;letter-spacing:-.03em;
   border:none;background:none;outline:none;color:var(--accent);padding:6px 0}
+.opb{flex:0 0 auto;width:36px;height:32px;border-radius:9px;padding:0;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--bg);font-size:13px;font-weight:700;color:var(--inkMid)}
 .chips{display:flex;gap:7px;overflow-x:auto;padding-bottom:3px;-webkit-overflow-scrolling:touch;
   scroll-behavior:smooth;overscroll-behavior-x:contain}
 .chip{flex-shrink:0;padding:9px 14px;border-radius:999px;background:var(--bg);
@@ -202,8 +205,24 @@ svg{display:block}
 
 /* ---------- version ---------- */
 // 두 자리 숫자로 씁니다. 바꿀 때마다 1씩 올리고 아래 기록에 한 줄 추가하세요
-var APP_VERSION = "06";
+var APP_VERSION = "11";
 var CHANGELOG = [
+  { v:"11", items:[
+    "＝ 와 ← 버튼 순서를 바꿨어요"
+  ]},
+  { v:"10", items:[
+    "＝ 버튼으로 계산을 확정하고 이어서 더 계산할 수 있어요"
+  ]},
+  { v:"09", items:[
+    "연산자 버튼 크기를 줄였어요"
+  ]},
+  { v:"08", items:[
+    "금액 입력에 숫자 키패드만 뜨게 하고, ＋ － × ÷ 버튼을 넣었어요"
+  ]},
+  { v:"07", items:[
+    "금액칸에 12000+5000 처럼 바로 계산식을 쓸 수 있어요",
+    "제목을 치면 최근 기록이 아래에 떠서 눌러 채울 수 있어요"
+  ]},
   { v:"06", items:[
     "예산 설정에서 분류별 금액의 합계를 볼 수 있어요"
   ]},
@@ -1152,28 +1171,21 @@ function mTx(){
   [["expense","지출"],["income","수입"],["transfer","이체"]].forEach(function(p){
     h+='<button data-mtype="'+p[0]+'" class="'+(M.type===p[0]?"on":"")+'">'+p[1]+'</button>'; });
   h+='</div>';
-  if(!isEdit && !M.pre){
-    var seen={}, recent=[];
-    for(var ri=S.tx.length-1; ri>=0 && recent.length<8; ri--){
-      var rx=S.tx[ri];
-      if(rx.type!==M.type || !rx.memo) continue;
-      var k=rx.memo+"|"+rx.amount;
-      if(seen[k]) continue;
-      seen[k]=1; recent.push(rx);
-    }
-    if(recent.length){
-      h+='<div class="lb">최근 기록에서 가져오기</div><div class="chips" style="margin-bottom:18px">';
-      recent.forEach(function(r,i){
-        h+='<button class="chip" data-quick="'+i+'">'+esc(r.memo)+
-           ' <span class="num" style="opacity:.65">'+won(r.amount)+'</span></button>'; });
-      h+='</div>';
-      M._recent=recent;
-    }
-  }
-  h+='<input class="amtin num" id="amt" inputmode="numeric" placeholder="0" value="'+
-    (M.amount?Number(M.amount).toLocaleString("ko-KR"):"")+'" style="color:'+
-    (isT?"var(--accent)":M.type==="expense"?"var(--down)":"var(--up)")+'">'+
-    '<div style="text-align:center;font-size:12px;color:var(--inkSoft);margin-bottom:20px">원</div>';
+  var amtColor = isT?"var(--accent)":M.type==="expense"?"var(--down)":"var(--up)";
+  // 숫자 키패드만 뜨게 하고, 연산자는 아래 버튼으로 넣습니다
+  h+='<input class="amtin num" id="amt" type="text" inputmode="decimal" enterkeyhint="done" '+
+    'autocomplete="off" autocorrect="off" spellcheck="false" '+
+    'placeholder="0" value="'+esc(amtDisplay())+'" style="color:'+amtColor+'">'+
+    '<div id="amtsub" style="text-align:center;font-size:12px;color:var(--inkSoft);margin-bottom:10px">'+
+    amtSubHtml()+'</div>'+
+    '<div style="display:flex;gap:5px;justify-content:center;margin-bottom:20px">'+
+      '<button class="opb" data-op="+">＋</button>'+
+      '<button class="opb" data-op="-">－</button>'+
+      '<button class="opb" data-op="*">×</button>'+
+      '<button class="opb" data-op="/">÷</button>'+
+      '<button class="opb" data-op="=" style="background:var(--accentSoft);color:var(--accent)">＝</button>'+
+      '<button class="opb" data-op="bs" style="color:var(--inkSoft)">←</button>'+
+    '</div>';
 
   if(isT){
     if(transferable.length<2) h+='<div class="lb">자산</div><div style="background:var(--bg);border-radius:12px;padding:13px;font-size:12.5px;color:var(--inkSoft);line-height:1.5;margin-bottom:16px">이체하려면 잔액을 가진 자산이 2개 이상 필요해요.</div>';
@@ -1208,7 +1220,10 @@ function mTx(){
       '<div style="font-size:11px;color:var(--inkSoft);margin-top:1px">자동이체·구독료처럼 매달 자동으로 기록돼요</div></div>'+
       '<span class="sw"><i></i></span></button>';
   }
-  h+='<div class="lb">제목</div><input class="fld" id="memo" placeholder="'+(isT?"예: 생활비 이체":"예: 점심 김치찌개")+'" value="'+esc(M.memo)+'">';
+  h+='<div class="lb">제목</div>'+
+     '<input class="fld" id="memo" autocomplete="off" placeholder="'+
+     (isT?"예: 생활비 이체":"예: 점심 김치찌개")+'" value="'+esc(M.memo)+'">'+
+     '<div id="sugg">'+suggestHtml()+'</div>';
   h+='<div class="lb">메모 <span style="font-weight:500;color:var(--inkSoft)">(내역에는 안 보여요)</span></div>'+
      '<textarea class="fld" id="note" rows="2" placeholder="자세한 내용을 남겨두세요">'+esc(M.note||"")+'</textarea>'+
      '<div style="font-size:11px;color:var(--inkSoft);line-height:1.6;margin:-4px 0 14px 2px">'+
@@ -1326,6 +1341,104 @@ function mChangelog(){
   }
   return sheet("업데이트 기록",h);
 }
+// 금액 칸 아래 줄 — 계산 중이면 수식을, 아니면 "원" 을 보여줍니다
+// 제목 칸 아래 추천 — 최근 기록에서 찾아 보여줍니다
+function suggestList(){
+  if(!M || M.editId || M.pre) return [];
+  var q=(M.memo||"").trim().toLowerCase();
+  var seen={}, out=[];
+  for(var i=S.tx.length-1; i>=0 && out.length<5; i--){
+    var x=S.tx[i];
+    if(x.type!==M.type || !x.memo) continue;
+    if(q && x.memo.toLowerCase().indexOf(q)<0) continue;
+    if(q && x.memo.trim().toLowerCase()===q) continue;   // 이미 똑같이 쳤으면 제외
+    var k=x.memo+"|"+x.amount;
+    if(seen[k]) continue;
+    seen[k]=1; out.push(x);
+  }
+  return out;
+}
+function suggestHtml(){
+  var list=suggestList();
+  if(!list.length) return "";
+  M._recent=list;
+  var h='<div style="background:var(--bg);border-radius:12px;padding:4px 2px;margin:-4px 0 12px">';
+  list.forEach(function(r,i){
+    var c = r.type==="transfer" ? null : cat(r.type, r.category);
+    h+='<button data-quick="'+i+'" style="width:100%;display:flex;align-items:center;gap:9px;'+
+      'padding:9px 12px;text-align:left">'+
+      '<span class="ic" style="width:26px;height:26px;border-radius:8px;flex-shrink:0;background:'+
+        (c?c.color:"var(--accent)")+'1f">'+svg(c?c.icon:"repeat",13,c?c.color:"var(--accent)")+'</span>'+
+      '<span style="flex:1;min-width:0;font-size:13px;font-weight:600;white-space:nowrap;'+
+        'overflow:hidden;text-overflow:ellipsis">'+esc(r.memo)+'</span>'+
+      '<span class="num" style="font-size:12.5px;color:var(--inkSoft)">'+won(r.amount)+'</span>'+
+      '</button>';
+  });
+  return h+'</div>';
+}
+function amtSubHtml(){
+  if(!M || !M.calc || !M.calc.length) return "원";
+  var parts = M.calc.map(function(t,i){
+    return (i===0 ? "" : (t.op==="-" ? " − " : " + ")) + won(t.v);
+  }).join("");
+  var cur = parseInt(M.amount,10)||0;
+  if(cur) parts += (M.pendingOp==="-" ? " − " : " + ") + won(cur);
+  return '<span style="color:var(--inkMid)">'+parts+'</span>'+
+    '<span style="margin:0 6px;opacity:.5">=</span>'+
+    '<span class="num" style="font-weight:800;color:var(--ink)">'+won(calcTotal())+'</span>원';
+}
+function calcTotal(){
+  if(!M || !M.calc) return parseInt(M.amount,10)||0;
+  var sum = 0;
+  M.calc.forEach(function(t){ sum += (t.op==="-" ? -t.v : t.v); });
+  var cur = parseInt(M.amount,10)||0;
+  if(cur) sum += (M.pendingOp==="-" ? -cur : cur);
+  return sum;
+}
+// 금액칸에 12000+5000 처럼 식을 직접 칠 수 있습니다.
+// 숫자와 + - * / 만 남기고 곱셈·나눗셈을 먼저 계산합니다.
+function amtClean(str){
+  return String(str==null?"":str).replace(/[^0-9+\-*/.]/g, "");
+}
+function amtEval(expr){
+  var e = amtClean(expr);
+  if(!e) return null;
+  e = e.replace(/[+\-*/.]+$/, "");          // 끝에 걸린 연산자는 무시
+  if(!e) return null;
+  var nums = e.split(/[+\-*/]/).filter(function(x){ return x!==""; });
+  if(!nums.length) return null;
+  var vals = nums.map(Number);
+  var o = e.replace(/[0-9.]/g, "").split("").filter(function(x){ return x!==""; });
+  for(var i=0; i<o.length; ){
+    if(o[i]==="*" || o[i]==="/"){
+      var r = o[i]==="*" ? vals[i]*vals[i+1] : (vals[i+1] ? vals[i]/vals[i+1] : 0);
+      vals.splice(i, 2, r); o.splice(i, 1);
+    } else i++;
+  }
+  var sum = vals[0]||0;
+  for(var j=0; j<o.length; j++) sum = (o[j]==="-") ? sum-(vals[j+1]||0) : sum+(vals[j+1]||0);
+  return Math.round(sum);
+}
+function amtHasOp(){
+  return !!(M && /[+\-*/]/.test(amtClean(M.amount).slice(1)));
+}
+// 화면에 보일 금액칸 값 — 식이면 그대로, 단순 숫자면 자릿수를 넣습니다
+function amtDisplay(){
+  if(!M) return "";
+  var raw = amtClean(M.amount);
+  if(!raw) return "";
+  if(amtHasOp()) return raw;
+  var n = parseInt(raw, 10);
+  return isNaN(n) ? "" : n.toLocaleString("ko-KR");
+}
+// 금액칸 아래 줄 — 식이면 결과를, 아니면 "원"
+function amtSubHtml(){
+  if(!M || !amtHasOp()) return "원";
+  var total = amtEval(M.amount);
+  if(total===null) return "원";
+  return '<span class="num" style="font-weight:800;color:var(--ink)">= '+won(total)+'</span>원';
+}
+
 function mSettings(){
   var h='<div class="lb">화면</div>'+
     '<button class="tog '+(S.theme==="dark"?"on":"")+'" data-theme="1" style="margin-bottom:18px">'+
@@ -1671,7 +1784,7 @@ function saveAll(){ save("transactions",S.tx); save("accounts",S.acc); save("rec
 
 /* ---------- events ---------- */
 document.addEventListener("click",function(ev){
-  var el=ev.target.closest?ev.target.closest("[data-tab],[data-nav],[data-per],[data-theme],[data-smart],[data-new],[data-edit],[data-del],[data-mask],[data-close],[data-mtype],[data-macc],[data-mcat],[data-mfrom],[data-mto],[data-mrep],[data-editcats],[data-grp],[data-acc],[data-accopen],[data-accedit],[data-accdel],[data-accmv],[data-atype],[data-alink],[data-asave],[data-rtog],[data-rdel],[data-cats],[data-exp],[data-imp],[data-smsgo],[data-bt],[data-bback],[data-bsave],[data-cmv],[data-cedit],[data-cdel],[data-cnew],[data-cicon],[data-ccol],[data-ccommit],[data-csave],[data-quick],[data-search],[data-fty],[data-fcat],[data-budget],[data-bsaveall],[data-paycard],[data-settings],[data-tag],[data-copybk],[data-bedit],[data-fper],[data-wipetx],[data-wipeall],[data-hidetot],[data-accmon],[data-changelog],#save"):null;
+  var el=ev.target.closest?ev.target.closest("[data-tab],[data-nav],[data-per],[data-theme],[data-smart],[data-new],[data-edit],[data-del],[data-mask],[data-close],[data-mtype],[data-macc],[data-mcat],[data-mfrom],[data-mto],[data-mrep],[data-editcats],[data-grp],[data-acc],[data-accopen],[data-accedit],[data-accdel],[data-accmv],[data-atype],[data-alink],[data-asave],[data-rtog],[data-rdel],[data-cats],[data-exp],[data-imp],[data-smsgo],[data-bt],[data-bback],[data-bsave],[data-cmv],[data-cedit],[data-cdel],[data-cnew],[data-cicon],[data-ccol],[data-ccommit],[data-csave],[data-quick],[data-search],[data-fty],[data-fcat],[data-budget],[data-bsaveall],[data-paycard],[data-settings],[data-tag],[data-copybk],[data-bedit],[data-fper],[data-wipetx],[data-wipeall],[data-hidetot],[data-accmon],[data-changelog],[data-op],#save"):null;
   if(!el) return;
   var d=el.dataset||{};
 
@@ -1789,6 +1902,31 @@ document.addEventListener("click",function(ev){
   if(d.rdel){ if(confirm("이 반복 거래를 지울까요? 이미 기록된 내역은 남아요.")){
     S.rec=S.rec.filter(function(r){return r.id!==d.rdel;}); save("recurring",S.rec); render(); } return; }
 
+  if(d.op){
+    var f=document.getElementById("amt");
+    var cur = amtClean(f ? f.value : M.amount);
+    if(d.op==="bs") cur = cur.slice(0, -1);
+    else if(d.op==="="){
+      var r = amtEval(cur);                  // 결과를 확정하고 이어서 계산할 수 있게
+      if(r===null) return;
+      cur = String(r);
+    }
+    else{
+      if(!cur) return;                       // 빈 칸에서 연산자만 넣지 않습니다
+      cur = cur.replace(/[+\-*/]$/, "");      // 연산자 연달아 쓰면 교체
+      cur += d.op;
+    }
+    M.amount = cur;
+    if(f){
+      f.value = amtHasOp() ? cur : (cur ? Number(cur).toLocaleString("ko-KR") : "");
+      try{ f.focus(); f.setSelectionRange(f.value.length, f.value.length); }catch(e){}
+    }
+    var sb=document.getElementById("amtsub");
+    if(sb) sb.innerHTML=amtSubHtml();
+    var sv=document.getElementById("save");
+    if(sv){ var bad2=M.type==="transfer"&&(!M.from||!M.to||M.from===M.to);
+      sv.disabled = !amtEval(cur) || bad2; }
+    return; }
   if(d.quick!==undefined){
     var r=(M._recent||[])[+d.quick];
     if(r){
@@ -1886,7 +2024,7 @@ document.addEventListener("click",function(ev){
 function syncTx(){
   var a=document.getElementById("amt"), m=document.getElementById("memo"),
       dd=document.getElementById("dt"), nt=document.getElementById("note");
-  if(a) M.amount=a.value.replace(/[^0-9]/g,"");
+  if(a) M.amount=amtClean(a.value);
   if(m) M.memo=m.value;
   if(nt) M.note=nt.value;
   if(dd) M.date=dd.value||M.date;
@@ -1915,23 +2053,37 @@ function syncCat(){ var n=document.getElementById("cnm"); if(n&&M.edit) M.edit.l
 
 document.addEventListener("input",function(e){
   if(e.target.id==="amt"){
-    var v=e.target.value.replace(/[^0-9]/g,"");
-    M.amount=v;
-    e.target.value=v?Number(v).toLocaleString("ko-KR"):"";
+    var pos = e.target.selectionStart;
+    var raw = amtClean(e.target.value);
+    M.amount = raw;
+    // 식을 쓰는 중이면 손대지 않고, 단순 숫자일 때만 자릿수를 넣습니다
+    var shown = amtHasOp() ? raw : (raw ? Number(raw).toLocaleString("ko-KR") : "");
+    if(e.target.value !== shown){
+      var before = e.target.value.length;
+      e.target.value = shown;
+      try{ e.target.setSelectionRange(pos + (shown.length - before), pos + (shown.length - before)); }catch(err){}
+    }
+    var sub=document.getElementById("amtsub");
+    if(sub) sub.innerHTML=amtSubHtml();
     var btn=document.getElementById("save");
     if(btn){ var bad=M.type==="transfer"&&(!M.from||!M.to||M.from===M.to);
-      btn.disabled=!v||bad; }
-  }
+      btn.disabled = !amtEval(raw) || bad; }
+    return; }
+  if(e.target.id==="memo"){
+    M.memo=e.target.value;
+    var sg=document.getElementById("sugg");
+    if(sg) sg.innerHTML=suggestHtml();
+    return; }
   if(e.target.id==="q"){
     M.q=e.target.value;
-    var el2=e.target, pos=el2.selectionStart;
+    var el2=e.target, pos2=el2.selectionStart;
     repaintSheet();
-    var f=document.getElementById("q");
-    if(f){ f.focus(); try{ f.setSelectionRange(pos,pos); }catch(err){} }
+    var qf=document.getElementById("q");
+    if(qf){ qf.focus(); try{ qf.setSelectionRange(pos2,pos2); }catch(err){} }
     return; }
   if(e.target.getAttribute && e.target.getAttribute("data-bk")){
-    var k=e.target.getAttribute("data-bk"), v=e.target.value.replace(/[^0-9]/g,"");
-    M.vals[k]=v; e.target.value=v?Number(v).toLocaleString("ko-KR"):"";
+    var k=e.target.getAttribute("data-bk"), bv=e.target.value.replace(/[^0-9]/g,"");
+    M.vals[k]=bv; e.target.value=bv?Number(bv).toLocaleString("ko-KR"):"";
     var sumBox=document.getElementById("bsum");
     if(sumBox) sumBox.innerHTML=budgetSumHtml();
     return; }
@@ -1965,7 +2117,7 @@ function newTxState(seed){
 }
 function commitTx(){
   syncTx();
-  var n=parseInt(M.amount,10);
+  var n = amtEval(M.amount);
   if(!n||n<=0) return;
   var isT=M.type==="transfer";
   if(isT&&(!M.from||!M.to||M.from===M.to)) return;
