@@ -941,7 +941,8 @@ function vStats(){
   var cm={},ct=0;
   list.forEach(function(x){ if(x.type!=="expense") return; cm[x.category]=(cm[x.category]||0)+x.amount; ct+=x.amount; });
   var citems=Object.keys(cm).map(function(k){ var c=cat("expense",k);
-    return {name:c.label,value:cm[k],color:c.color}; }).sort(function(a,b){return b.value-a.value;});
+    return {key:k,name:c.label,value:cm[k],color:c.color,icon:c.icon}; })
+    .sort(function(a,b){return b.value-a.value;});
   if(!isY) h+=budgetCard(list);   // 예산은 한 달 기준이라 월별 보기에서만
 
   h+='<div class="card"><div class="ttl">카테고리별 지출</div>';
@@ -950,10 +951,14 @@ function vStats(){
     var cnt=list.filter(function(x){ return x.type==="expense"; }).length;
     h+=donut(citems,ct,"지출 건수",cnt+"건");
     citems.forEach(function(c){
-      h+='<div class="legend"><span class="dot" style="background:'+c.color+'"></span>'+
+      h+='<button class="legend" data-catdet="'+esc(c.key)+'" style="width:100%">'+
+        '<span class="dot" style="background:'+c.color+'"></span>'+
         '<span class="nm">'+esc(c.name)+'</span><span class="pc num">'+Math.round(c.value/ct*100)+'%</span>'+
-        '<span class="vl num">'+won(c.value)+'</span></div>';
+        '<span class="vl num">'+won(c.value)+'</span>'+
+        svg("right",13,"var(--inkSoft)")+'</button>';
     });
+    h+='<div style="font-size:11px;color:var(--inkSoft);text-align:center;margin-top:10px">'+
+      '분류를 누르면 세부 내역을 볼 수 있어요</div>';
   }
   h+='</div>';
 
@@ -1562,6 +1567,65 @@ function budgetSumHtml(){
   }
   return h;
 }
+// 분류 세부 내역 — 자산 상세처럼 달을 넘겨볼 수 있습니다
+function mCatDetail(){
+  var key=M.catKey;
+  var c=cat("expense",key);
+  var n=new Date(), t=new Date(n.getFullYear(), n.getMonth()+M.mOff, 1);
+  var ym=t.getFullYear()+"-"+pad(t.getMonth()+1);
+  var lbl=t.getFullYear()+". "+pad(t.getMonth()+1);
+
+  var mine=S.tx.filter(function(x){
+    return x.type==="expense" && x.category===key && x.date.slice(0,7)===ym;
+  }).sort(function(a,b){ return a.date<b.date?1:-1; });
+  var total=mine.reduce(function(s2,x){ return s2+x.amount; },0);
+
+  // 최근 6개월 흐름
+  var bars=[];
+  for(var i=5;i>=0;i--){
+    var d=new Date(t.getFullYear(), t.getMonth()-i, 1);
+    var k=d.getFullYear()+"-"+pad(d.getMonth()+1);
+    var v=0;
+    S.tx.forEach(function(x){
+      if(x.type==="expense" && x.category===key && x.date.slice(0,7)===k) v+=x.amount; });
+    bars.push({label:(d.getMonth()+1)+"", value:v, now:k===ym});
+  }
+  var mx=1; bars.forEach(function(b){ mx=Math.max(mx,b.value); });
+
+  var h='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'+
+    '<button class="mini" data-catmon="-1" style="padding:6px 10px">'+svg("left",14)+'</button>'+
+    '<div style="text-align:center">'+
+      '<div style="font-size:13px;font-weight:700">'+esc(lbl)+'</div>'+
+      '<div class="num" style="font-size:17px;font-weight:800;color:'+c.color+';margin-top:3px">'+
+        won(total)+'<span style="font-size:12px;font-weight:600">원</span></div>'+
+      '<div style="font-size:11px;color:var(--inkSoft);margin-top:2px">'+mine.length+'건</div>'+
+    '</div>'+
+    '<button class="mini" data-catmon="1" style="padding:6px 10px">'+svg("right",14)+'</button>'+
+    '</div>';
+
+  // 월별 막대
+  h+='<div style="display:flex;align-items:flex-end;gap:6px;height:64px;margin-bottom:16px;'+
+    'padding:0 4px">';
+  bars.forEach(function(b){
+    var ht=Math.max(3, Math.round(b.value/mx*54));
+    h+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">'+
+      '<div style="width:100%;max-width:26px;height:'+ht+'px;border-radius:5px;background:'+
+        c.color+(b.now?"":"55")+'"></div>'+
+      '<span style="font-size:10px;color:'+(b.now?"var(--ink)":"var(--inkSoft)")+
+        ';font-weight:'+(b.now?"700":"500")+'">'+b.label+'</span></div>';
+  });
+  h+='</div>';
+
+  if(!mine.length){
+    h+='<div style="text-align:center;font-size:13px;color:var(--inkSoft);padding:22px 0">'+
+      '이 달에는 기록이 없어요.</div>';
+  } else {
+    h+='<div class="list" style="border-radius:14px">';
+    mine.forEach(function(x){ h+=txRow(x); });
+    h+='</div>';
+  }
+  return sheet(c.label, h);
+}
 function mTag(){
   var tag=M.tag;
   var res=S.tx.filter(function(x){ return tagsOf(x).indexOf(tag)>=0; })
@@ -1725,7 +1789,8 @@ function mCats(){
 function effTheme(){ return S.theme==="dark" ? "dark" : "light"; }
 function sheetHtml(){
   if(!M) return "";
-  return M.changelog ? mChangelog()
+  return M.catKey!==undefined ? mCatDetail()
+       : M.changelog ? mChangelog()
        : M.backupText!==undefined ? mBackupText()
        : M.tag!==undefined ? mTag()
        : M.settings ? mSettings()
@@ -1796,7 +1861,7 @@ function saveAll(){ save("transactions",S.tx); save("accounts",S.acc); save("rec
 
 /* ---------- events ---------- */
 document.addEventListener("click",function(ev){
-  var el=ev.target.closest?ev.target.closest("[data-tab],[data-nav],[data-per],[data-theme],[data-smart],[data-new],[data-edit],[data-del],[data-mask],[data-close],[data-mtype],[data-macc],[data-mcat],[data-mfrom],[data-mto],[data-mrep],[data-editcats],[data-grp],[data-acc],[data-accopen],[data-accedit],[data-accdel],[data-accmv],[data-atype],[data-alink],[data-asave],[data-rtog],[data-rdel],[data-cats],[data-exp],[data-imp],[data-smsgo],[data-bt],[data-bback],[data-bsave],[data-cmv],[data-cedit],[data-cdel],[data-cnew],[data-cicon],[data-ccol],[data-ccommit],[data-csave],[data-quick],[data-search],[data-fty],[data-fcat],[data-budget],[data-bsaveall],[data-paycard],[data-settings],[data-tag],[data-copybk],[data-bedit],[data-fper],[data-wipetx],[data-wipeall],[data-hidetot],[data-accmon],[data-changelog],[data-op],[data-hf],#save"):null;
+  var el=ev.target.closest?ev.target.closest("[data-tab],[data-nav],[data-per],[data-theme],[data-smart],[data-new],[data-edit],[data-del],[data-mask],[data-close],[data-mtype],[data-macc],[data-mcat],[data-mfrom],[data-mto],[data-mrep],[data-editcats],[data-grp],[data-acc],[data-accopen],[data-accedit],[data-accdel],[data-accmv],[data-atype],[data-alink],[data-asave],[data-rtog],[data-rdel],[data-cats],[data-exp],[data-imp],[data-smsgo],[data-bt],[data-bback],[data-bsave],[data-cmv],[data-cedit],[data-cdel],[data-cnew],[data-cicon],[data-ccol],[data-ccommit],[data-csave],[data-quick],[data-search],[data-fty],[data-fcat],[data-budget],[data-bsaveall],[data-paycard],[data-settings],[data-tag],[data-copybk],[data-bedit],[data-fper],[data-wipetx],[data-wipeall],[data-hidetot],[data-accmon],[data-changelog],[data-op],[data-hf],[data-catdet],[data-catmon],#save"):null;
   if(!el) return;
   var d=el.dataset||{};
 
@@ -1966,6 +2031,8 @@ document.addEventListener("click",function(ev){
     }
     repaintSheet(); return; }
   if(d.tag){ M={tag:d.tag,back:M}; render(); return; }
+  if(d.catdet){ M={catKey:d.catdet, mOff:S.period==="year"?0:S.mOff}; render(); return; }
+  if(d.catmon){ M.mOff += parseInt(d.catmon,10); repaintSheet(); return; }
   if(d.fty){ syncSearch(); M.ftype=d.fty; M.fcat=""; repaintSheet(); return; }
   if(d.fcat!==undefined){ syncSearch(); M.fcat=d.fcat; repaintSheet(); return; }
   if(d.budget!==undefined){ M={vals:Object.assign({},S.budgets),back:M&&M.settings?{settings:true}:null}; render(); return; }
