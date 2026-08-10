@@ -205,8 +205,13 @@ svg{display:block}
 
 /* ---------- version ---------- */
 // 두 자리 숫자로 씁니다. 바꿀 때마다 1씩 올리고 아래 기록에 한 줄 추가하세요
-var APP_VERSION = "13";
+var APP_VERSION = "14";
 var CHANGELOG = [
+  { v:"14", items:[
+    "반복 거래를 직접 추가할 수 있어요",
+    "기록을 수정할 때도 매달 반복을 켜고 끌 수 있어요",
+    "신용카드 결제 예정 금액을 사용 기간에 맞춰 계산해요"
+  ]},
   { v:"13", items:[
     "반복 거래를 설정으로 옮기고 수정·일시정지를 넣었어요",
     "예산을 정하지 않은 분류도 얼마 썼는지 보여요"
@@ -525,6 +530,37 @@ function monthsUntil(dateStr){
   return Math.max(0,m);
 }
 // next occurrence of a monthly payment day, counting today as still due
+// 이번 결제일에 청구될 사용 기간을 구합니다.
+// cycle "prev"  : 지난달 1일 ~ 말일 (가장 흔한 방식)
+// cycle "mid"   : 지지난달 cycleDay ~ 지난달 (cycleDay-1)
+// cycle "custom": 직접 정한 시작일 기준
+function billingRange(card, payDate){
+  var d = new Date((payDate||today())+"T00:00:00");
+  var y = d.getFullYear(), m = d.getMonth();      // m: 0-based, 결제월
+  var cyc = card.cycle || "prev";
+  var from, to;
+  if(cyc === "mid" || cyc === "custom"){
+    var sd = Math.max(1, Math.min(28, parseInt(card.cycleDay,10) || 1));
+    // 지난달 sd일 ~ 이번달 (sd-1)일
+    from = new Date(y, m-1, sd);
+    to   = new Date(y, m, sd-1);
+  } else {
+    from = new Date(y, m-1, 1);                   // 지난달 1일
+    to   = new Date(y, m, 0);                     // 지난달 말일
+  }
+  var f = function(x){ return x.getFullYear()+"-"+pad(x.getMonth()+1)+"-"+pad(x.getDate()); };
+  return { from: f(from), to: f(to) };
+}
+// 그 기간에 이 카드로 쓴 금액
+function billedAmount(card, payDate){
+  var r = billingRange(card, payDate);
+  var sum = 0;
+  S.tx.forEach(function(x){
+    if(x.type!=="expense" || x.accountId!==card.id) return;
+    if(x.date >= r.from && x.date <= r.to) sum += x.amount;
+  });
+  return sum;
+}
 function nextPayDate(day){
   if(!day) return today();
   var t=new Date(today()+"T00:00:00"), y=t.getFullYear(), m=t.getMonth()+1;
@@ -1136,15 +1172,30 @@ function accCard(a,b,f,idx){
       var owed=-(b[a.id]||0);
       var due=a.payDay?nextPayDate(a.payDay):"";
       var dd=due?daysUntil(due):null;
-      h+='<div style="margin-top:12px;padding:12px 13px;background:var(--bg);border-radius:12px;'+
-        'display:flex;align-items:center;gap:10px">'+
+      var billed=a.payDay?billedAmount(a,due):0;
+      var rng=a.payDay?billingRange(a,due):null;
+      h+='<div style="margin-top:12px;padding:12px 13px;background:var(--bg);border-radius:12px">'+
+        '<div style="display:flex;align-items:center;gap:10px">'+
         '<div style="flex:1;min-width:0">'+
         '<div style="font-size:11.5px;font-weight:700;color:var(--inkMid)">'+
         (a.payDay?("결제일 D-"+dd+" · 매달 "+a.payDay+"일"):"결제일 미설정")+'</div>'+
-        '<div class="num" style="font-size:11px;color:var(--inkSoft);margin-top:2px">'+
-        (owed>0?"위 금액을 결제하면 0원이 돼요":"결제할 금액 없음")+'</div></div>'+
-        (owed>0?'<button class="mini" data-paycard="'+a.id+'" style="background:var(--accent);color:#fff;padding:9px 14px">결제하기</button>':'')+
+        (rng?'<div class="num" style="font-size:10.5px;color:var(--inkSoft);margin-top:3px">'+
+          esc(rng.from.slice(5).replace("-","."))+' ~ '+esc(rng.to.slice(5).replace("-","."))+' 사용분</div>':'')+
+        '</div>'+
+        (a.payDay?'<div style="text-align:right"><div style="font-size:10px;color:var(--inkSoft);font-weight:600">결제 예정</div>'+
+          '<div class="num" style="font-size:15px;font-weight:800;color:var(--down);margin-top:2px">'+
+          mask(billed,1)+'</div></div>':'')+
         '</div>';
+      if(a.payDay && billed>0)
+        h+='<button class="mini" data-paycard="'+a.id+'" style="width:100%;margin-top:10px;'+
+          'background:var(--accent);color:#fff;padding:10px">결제하기</button>';
+      else if(!a.payDay)
+        h+='<div style="font-size:11px;color:var(--inkSoft);margin-top:6px">'+
+          '수정에서 결제일을 정하면 예정 금액을 계산해드려요.</div>';
+      if(owed>0 && billed!==owed)
+        h+='<div class="num" style="font-size:10.5px;color:var(--inkSoft);margin-top:8px;'+
+          'padding-top:8px;border-top:1px solid var(--line)">미결제 총액 '+mask(owed,1)+'원</div>';
+      h+='</div>';
     }
 
 
@@ -1243,12 +1294,16 @@ function mTx(){
     h+='</div>';
   }
   h+='<div class="lb">날짜</div><input class="fld" type="date" id="dt" value="'+M.date+'">';
-  if(!isEdit){
-    h+='<button class="tog '+(M.rep?"on":"")+'" data-mrep="1">'+svg("repeat",16,M.rep?"var(--accent)":"var(--inkSoft)")+
-      '<div style="flex:1"><div style="font-size:13.5px;font-weight:600;color:'+(M.rep?"var(--accent)":"var(--ink)")+'">매달 반복</div>'+
-      '<div style="font-size:11px;color:var(--inkSoft);margin-top:1px">자동이체·구독료처럼 매달 자동으로 기록돼요</div></div>'+
-      '<span class="sw"><i></i></span></button>';
-  }
+  var linkedRec = M.editId ? S.rec.filter(function(r){ return r.id===M.recurringId; })[0] : null;
+  h+='<button class="tog '+(M.rep?"on":"")+'" data-mrep="1">'+svg("repeat",16,M.rep?"var(--accent)":"var(--inkSoft)")+
+    '<div style="flex:1"><div style="font-size:13.5px;font-weight:600;color:'+(M.rep?"var(--accent)":"var(--ink)")+'">매달 반복</div>'+
+    '<div style="font-size:11px;color:var(--inkSoft);margin-top:1px">'+
+      (M.rep ? "매달 "+(+M.date.slice(8,10))+"일에 자동으로 기록돼요"
+             : "자동이체·구독료처럼 매달 자동으로 기록돼요")+'</div></div>'+
+    '<span class="sw"><i></i></span></button>';
+  if(linkedRec)
+    h+='<div style="font-size:11px;color:var(--inkSoft);line-height:1.6;margin:-8px 0 14px 2px">'+
+      '이 기록은 반복 거래에서 만들어졌어요. 설정 → 반복 거래에서 관리할 수 있어요.</div>';
   h+='<div class="lb">제목</div>'+
      '<input class="fld" id="memo" autocomplete="off" placeholder="'+
      (isT?"예: 생활비 이체":"예: 점심 김치찌개")+'" value="'+esc(M.memo)+'">'+
@@ -1328,8 +1383,22 @@ function mAcc(){
   if(M.atype==="credit_card"){
     h+='<div class="lb" style="margin-top:6px">결제일 <span style="font-weight:500;color:var(--inkSoft)">(선택)</span></div>'+
       '<input class="fld num" id="aday" inputmode="numeric" placeholder="매달 며칠 (예: 25)" value="'+esc(M.day||"")+'">'+
-      '<div style="font-size:11px;color:var(--inkSoft);line-height:1.6;margin:-2px 0 12px 2px">'+
-      '입력하면 다음 결제일까지 남은 날짜를 알려드려요.</div>';
+      '<div style="font-size:11px;color:var(--inkSoft);line-height:1.6;margin:-2px 0 14px 2px">'+
+      '입력하면 결제 예정 금액과 남은 날짜를 알려드려요.</div>';
+    h+='<div class="lb">사용 기간</div>'+
+      '<div class="chips" style="margin-bottom:10px">'+
+      [["prev","지난달 1일~말일"],["mid","중순 기준"]].map(function(t){
+        return '<button class="chip '+((M.cycle||"prev")===t[0]?"on":"")+'" data-acyc="'+t[0]+'">'+t[1]+'</button>';
+      }).join("")+'</div>';
+    if((M.cycle||"prev")==="mid"){
+      h+='<input class="fld num" id="acycd" inputmode="numeric" placeholder="시작일 (예: 15)" value="'+
+        esc(M.cycleDay||"")+'">'+
+        '<div style="font-size:11px;color:var(--inkSoft);line-height:1.6;margin:-2px 0 12px 2px">'+
+        '지난달 이 날짜부터 이번달 전날까지를 한 번에 청구해요.</div>';
+    } else {
+      h+='<div style="font-size:11px;color:var(--inkSoft);line-height:1.6;margin:-2px 0 12px 2px">'+
+        '가장 흔한 방식이에요. 명세서와 다르면 중순 기준을 골라보세요.</div>';
+    }
   }
   h+='<button class="go" data-asave="1">'+(M.editId?"수정하기":"추가하기")+'</button>';
   return sheet(M.editId?"자산 수정":"자산 추가",h);
@@ -1471,13 +1540,15 @@ function amtSubHtml(){
 
 // 반복 거래 목록 — 설정에서 엽니다
 function mRecur(){
-  var h='<div style="font-size:12px;color:var(--inkSoft);line-height:1.7;margin-bottom:14px">'+
-    '자동이체나 구독료처럼 매달 나가는 거래예요.<br>'+
-    '기록할 때 "매달 반복"을 켜면 여기에 등록됩니다.</div>';
+  var h='<div style="font-size:12px;color:var(--inkSoft);line-height:1.7;margin-bottom:12px">'+
+    '자동이체나 구독료처럼 매달 나가는 거래예요.</div>'+
+    '<button class="go" data-rnew="1" style="margin:0 0 16px;background:var(--accentSoft);'+
+      'color:var(--accent)">＋ 반복 거래 추가</button>';
 
   if(!S.rec.length){
     return sheet("반복 거래", h+'<div style="text-align:center;font-size:13px;color:var(--inkSoft);'+
-      'padding:26px 0">등록된 반복 거래가 없어요.</div>');
+      'padding:22px 0;line-height:1.7">등록된 반복 거래가 없어요.<br>'+
+      '위 버튼으로 추가하거나, 기록할 때 "매달 반복"을 켜세요.</div>');
   }
 
   var on=S.rec.filter(function(r){ return r.active; });
@@ -1530,7 +1601,14 @@ function mRecur(){
 function mRecEdit(){
   var r=M.rec;
   var isT=r.type==="transfer";
-  var h='<div class="lb">금액</div>'+
+  var h="";
+  if(M.isNew){
+    h+='<div class="seg" style="margin-bottom:18px">'+
+      [["expense","지출"],["income","수입"],["transfer","이체"]].map(function(t){
+        return '<button data-rtype="'+t[0]+'" class="'+(r.type===t[0]?"on":"")+'">'+t[1]+'</button>';
+      }).join("")+'</div>';
+  }
+  h+='<div class="lb">금액</div>'+
     '<input class="fld num" id="re_amt" inputmode="numeric" value="'+
       (r.amount?Number(r.amount).toLocaleString("ko-KR"):"")+'">'+
     '<div class="lb">제목</div>'+
@@ -1571,7 +1649,7 @@ function mRecEdit(){
     '<span class="sw"><i></i></span></button>';
 
   h+='<button class="go" data-rsave="1">저장하기</button>';
-  return sheet("반복 거래 수정", h);
+  return sheet(M.isNew ? "반복 거래 추가" : "반복 거래 수정", h);
 }
 
 function mSettings(){
@@ -1986,7 +2064,7 @@ function saveAll(){ save("transactions",S.tx); save("accounts",S.acc); save("rec
 
 /* ---------- events ---------- */
 document.addEventListener("click",function(ev){
-  var el=ev.target.closest?ev.target.closest("[data-tab],[data-nav],[data-per],[data-theme],[data-smart],[data-new],[data-edit],[data-del],[data-mask],[data-close],[data-mtype],[data-macc],[data-mcat],[data-mfrom],[data-mto],[data-mrep],[data-editcats],[data-grp],[data-acc],[data-accopen],[data-accedit],[data-accdel],[data-accmv],[data-atype],[data-alink],[data-asave],[data-rtog],[data-rdel],[data-cats],[data-exp],[data-imp],[data-smsgo],[data-bt],[data-bback],[data-bsave],[data-cmv],[data-cedit],[data-cdel],[data-cnew],[data-cicon],[data-ccol],[data-ccommit],[data-csave],[data-quick],[data-search],[data-fty],[data-fcat],[data-budget],[data-bsaveall],[data-paycard],[data-settings],[data-tag],[data-copybk],[data-bedit],[data-fper],[data-wipetx],[data-wipeall],[data-hidetot],[data-accmon],[data-changelog],[data-op],[data-hf],[data-catdet],[data-catmon],[data-recur],[data-redit],[data-rtogm],[data-rcat],[data-racc],[data-rfrom],[data-rto],[data-rsave],#save"):null;
+  var el=ev.target.closest?ev.target.closest("[data-tab],[data-nav],[data-per],[data-theme],[data-smart],[data-new],[data-edit],[data-del],[data-mask],[data-close],[data-mtype],[data-macc],[data-mcat],[data-mfrom],[data-mto],[data-mrep],[data-editcats],[data-grp],[data-acc],[data-accopen],[data-accedit],[data-accdel],[data-accmv],[data-atype],[data-alink],[data-asave],[data-rtog],[data-rdel],[data-cats],[data-exp],[data-imp],[data-smsgo],[data-bt],[data-bback],[data-bsave],[data-cmv],[data-cedit],[data-cdel],[data-cnew],[data-cicon],[data-ccol],[data-ccommit],[data-csave],[data-quick],[data-search],[data-fty],[data-fcat],[data-budget],[data-bsaveall],[data-paycard],[data-settings],[data-tag],[data-copybk],[data-bedit],[data-fper],[data-wipetx],[data-wipeall],[data-hidetot],[data-accmon],[data-changelog],[data-op],[data-hf],[data-catdet],[data-catmon],[data-recur],[data-redit],[data-rtogm],[data-rcat],[data-racc],[data-rfrom],[data-rto],[data-rsave],[data-rnew],[data-rtype],[data-acyc],#save"):null;
   if(!el) return;
   var d=el.dataset||{};
 
@@ -2065,10 +2143,12 @@ document.addEventListener("click",function(ev){
     render(); return; }
   if(d.hidetot!==undefined){ S.hideTotal=!S.hideTotal; save("hideTotal",S.hideTotal); render(); return; }
   if(d.accmon){ S.accMOff += parseInt(d.accmon,10); render(); return; }
-  if(d.acc==="new"){ M={atype:"cash",name:"",init:"",link:"",mat:"",mon:"",day:"",editId:null}; render(); return; }
+  if(d.acc==="new"){ M={atype:"cash",name:"",init:"",link:"",mat:"",mon:"",day:"",
+    cycle:"prev",cycleDay:"",editId:null}; render(); return; }
   if(d.accedit){ var a=accById(d.accedit);
     if(a) M={atype:a.type,name:a.name,init:String(a.initial),link:a.linkedAccountId||"",
-      mat:a.maturity||"",mon:a.monthly?String(a.monthly):"",day:a.payDay?String(a.payDay):"",editId:a.id};
+      mat:a.maturity||"",mon:a.monthly?String(a.monthly):"",day:a.payDay?String(a.payDay):"",
+      cycle:a.cycle||"prev", cycleDay:a.cycleDay?String(a.cycleDay):"", editId:a.id};
     render(); return; }
   if(d.accdel){ if(confirm("이 자산을 지울까요? 관련 이체 기록도 함께 지워져요.")){
       S.acc=S.acc.filter(function(x){return x.id!==d.accdel;}).map(function(x){
@@ -2080,7 +2160,8 @@ document.addEventListener("click",function(ev){
   if(d.paycard){
     var card=accById(d.paycard);
     if(card){
-      var bb=balances(), owe=-(bb[card.id]||0);
+      var due2 = card.payDay ? nextPayDate(card.payDay) : today();
+      var owe = card.payDay ? billedAmount(card, due2) : -(balances()[card.id]||0);
       var src=S.acc.filter(function(x){ return ["cash","savings","installment"].indexOf(x.type)>=0; })[0];
       var st=newTxState();
       st.type="transfer";
@@ -2099,13 +2180,27 @@ document.addEventListener("click",function(ev){
       save("accounts",S.acc); render(); } return; }
   if(d.atype){ syncAcc(); M.atype=d.atype; repaintSheet(); return; }
   if(d.alink!==undefined){ syncAcc(); M.link=d.alink; repaintSheet(); return; }
+  if(d.acyc){ syncAcc(); M.cycle=d.acyc;
+    if(d.acyc==="mid" && !M.cycleDay) M.cycleDay="15";
+    repaintSheet(); return; }
   if(d.asave!==undefined){ commitAcc(); return; }
   if(d.recur!==undefined){ M={recur:true, back:{settings:true}}; render(); return; }
+  if(d.rnew!==undefined){
+    var first=S.ecats[0];
+    M={rec:{id:uid(), type:"expense", category:first?first.key:"", amount:0, memo:"",
+            accountId:(accByRecent()[0]||{}).id||"", day:1,
+            startMonth:today().slice(0,7), active:true, generatedMonths:[]},
+       isNew:true, back:{recur:true, back:{settings:true}}};
+    render(); return; }
   if(d.redit){
     var target=S.rec.filter(function(r){ return r.id===d.redit; })[0];
     if(target) M={rec:clone(target), back:{recur:true, back:{settings:true}}};
     render(); return; }
   if(d.rtogm!==undefined){ syncRec(); M.rec.active=!M.rec.active; repaintSheet(); return; }
+  if(d.rtype){ syncRec(); M.rec.type=d.rtype;
+    var L=d.rtype==="income"?S.icats:S.ecats;
+    if(d.rtype!=="transfer") M.rec.category=L[0]?L[0].key:"";
+    repaintSheet(); return; }
   if(d.rcat){ syncRec(); M.rec.category=d.rcat; repaintSheet(); return; }
   if(d.racc){ syncRec(); M.rec.accountId=d.racc; repaintSheet(); return; }
   if(d.rfrom){ syncRec(); M.rec.fromAccountId=d.rfrom; repaintSheet(); return; }
@@ -2114,7 +2209,8 @@ document.addEventListener("click",function(ev){
     syncRec();
     var rr=M.rec;
     if(!rr.amount || rr.amount<1) return;
-    S.rec=S.rec.map(function(x){ return x.id===rr.id ? rr : x; });
+    if(M.isNew) S.rec.push(rr);
+    else S.rec=S.rec.map(function(x){ return x.id===rr.id ? rr : x; });
     save("recurring", S.rec);
     M=M.back||null; render(); return; }
   if(d.rtog){ S.rec.forEach(function(r){ if(r.id===d.rtog) r.active=!r.active; });
@@ -2261,6 +2357,9 @@ function syncAcc(){
   if(mo) M.mon=mo.value.replace(/[^0-9]/g,"");
   if(dy){ var v=parseInt(dy.value.replace(/[^0-9]/g,""),10);
     M.day = (v>=1&&v<=31) ? String(v) : ""; }
+  var cd=document.getElementById("acycd");
+  if(cd){ var cv=parseInt(cd.value.replace(/[^0-9]/g,""),10);
+    M.cycleDay = (cv>=1&&cv<=28) ? String(cv) : ""; }
 }
 function syncSearch(){
   var q=document.getElementById("q"); if(q) M.q=q.value;
@@ -2343,7 +2442,9 @@ function newTxState(seed){
     acc:s&&s.accountId?s.accountId:(S.acc[0]?S.acc[0].id:""),
     from:s&&s.fromAccountId?s.fromAccountId:(S.acc[0]?S.acc[0].id:""),
     to:s&&s.toAccountId?s.toAccountId:"",
-    rep:false, editId:null, pre:false
+    rep: s ? !!s.recurringId : false,
+    recurringId: s ? (s.recurringId||null) : null,
+    editId:null, pre:false
   };
 }
 function commitTx(){
@@ -2358,14 +2459,33 @@ function commitTx(){
   if(isT){ o.fromAccountId=M.from; o.toAccountId=M.to; }
   else { o.category=M.cat; o.accountId=M.acc; }
   var fromBatch=M.batchFrom;
-  if(M.editId) S.tx=S.tx.map(function(x){ return x.id===M.editId?o:x; });
+  function makeRec(){
+    var r={id:uid(),type:M.type,amount:n,memo:M.memo.trim(),day:+M.date.slice(8,10),
+      startMonth:M.date.slice(0,7),active:true,generatedMonths:[M.date.slice(0,7)]};
+    if(isT){ r.fromAccountId=M.from; r.toAccountId=M.to; } else { r.category=M.cat; r.accountId=M.acc; }
+    return r;
+  }
+  if(M.editId){
+    S.tx=S.tx.map(function(x){ return x.id===M.editId?o:x; });
+    var had=S.rec.filter(function(r){ return r.id===M.recurringId; })[0];
+    if(M.rep && !had){                       // 수정하면서 반복을 켠 경우
+      var nr=makeRec(); o.recurringId=nr.id;
+      S.rec.push(nr); save("recurring",S.rec);
+    } else if(!M.rep && had){                // 반복을 끈 경우
+      S.rec=S.rec.filter(function(r){ return r.id!==M.recurringId; });
+      delete o.recurringId; save("recurring",S.rec);
+    } else if(M.rep && had){                 // 켜진 채로 내용이 바뀐 경우 함께 반영
+      had.amount=n; had.memo=M.memo.trim(); had.day=+M.date.slice(8,10);
+      if(isT){ had.fromAccountId=M.from; had.toAccountId=M.to; }
+      else { had.category=M.cat; had.accountId=M.acc; }
+      save("recurring",S.rec);
+    }
+  }
   else{
     S.tx.push(o);
     if(M.rep){
-      var r={id:uid(),type:M.type,amount:n,memo:M.memo.trim(),day:+M.date.slice(8,10),
-        startMonth:M.date.slice(0,7),active:true,generatedMonths:[M.date.slice(0,7)]};
-      if(isT){ r.fromAccountId=M.from; r.toAccountId=M.to; } else { r.category=M.cat; r.accountId=M.acc; }
-      S.rec.push(r); save("recurring",S.rec);
+      var r2=makeRec(); o.recurringId=r2.id;
+      S.rec.push(r2); save("recurring",S.rec);
     }
   }
   save("transactions",S.tx);
@@ -2382,7 +2502,9 @@ function commitAcc(){
   var payload={name:M.name.trim(),type:M.atype,initial:link?0:(parseInt(M.init,10)||0),linkedAccountId:link,
     maturity:M.atype==="installment"?(M.mat||""):"",
     monthly:M.atype==="installment"?(parseInt(M.mon,10)||0):0,
-    payDay:M.atype==="credit_card"?(parseInt(M.day,10)||0):0};
+    payDay:M.atype==="credit_card"?(parseInt(M.day,10)||0):0,
+    cycle:M.atype==="credit_card"?(M.cycle||"prev"):"",
+    cycleDay:M.atype==="credit_card"?(parseInt(M.cycleDay,10)||0):0};
   if(M.editId) S.acc=S.acc.map(function(a){ return a.id===M.editId?Object.assign({},a,payload):a; });
   else S.acc.push(Object.assign({id:uid()},payload));
   save("accounts",S.acc); M=null; render();
