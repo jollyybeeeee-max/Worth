@@ -205,8 +205,12 @@ svg{display:block}
 
 /* ---------- version ---------- */
 // 두 자리 숫자로 씁니다. 바꿀 때마다 1씩 올리고 아래 기록에 한 줄 추가하세요
-var APP_VERSION = "12";
+var APP_VERSION = "13";
 var CHANGELOG = [
+  { v:"13", items:[
+    "반복 거래를 설정으로 옮기고 수정·일시정지를 넣었어요",
+    "예산을 정하지 않은 분류도 얼마 썼는지 보여요"
+  ]},
   { v:"12", items:[
     "내역에서 지출만·수입만 골라 볼 수 있어요",
     "예산을 통계 화면으로 옮겼어요",
@@ -841,23 +845,34 @@ function accTxRow(x,acc,last){
       sign+won(amt)+'</span></button>';
 }
 function budgetCard(list){
-  var keys=Object.keys(S.budgets).filter(function(k){ return S.budgets[k]>0; });
-  if(!keys.length) return "";
   var spent={}, total=0;
   list.forEach(function(x){ if(x.type!=="expense") return;
     spent[x.category]=(spent[x.category]||0)+x.amount; total+=x.amount; });
+
   var rows=[];
-  if(S.budgets.__total__>0) rows.push({name:"전체",used:total,cap:S.budgets.__total__,color:"var(--accent)"});
+  if(S.budgets.__total__>0)
+    rows.push({name:"전체",used:total,cap:S.budgets.__total__,color:"var(--accent)"});
+  // 예산을 정한 분류가 먼저, 그다음 쓴 적 있는 분류
   S.ecats.forEach(function(c){
-    if(S.budgets[c.key]>0) rows.push({name:c.label,used:spent[c.key]||0,cap:S.budgets[c.key],color:c.color}); });
-  if(!rows.length) return "";
-  var h='<div class="card" style="margin-top:14px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'+
+    if(S.budgets[c.key]>0)
+      rows.push({name:c.label,used:spent[c.key]||0,cap:S.budgets[c.key],color:c.color}); });
+  var noCap=[];
+  S.ecats.forEach(function(c){
+    if(!(S.budgets[c.key]>0) && spent[c.key])
+      noCap.push({name:c.label,used:spent[c.key],cap:0,color:c.color}); });
+  noCap.sort(function(a,b){ return b.used-a.used; });
+
+  if(!rows.length && !noCap.length) return "";
+
+  var h='<div class="card" style="margin-top:14px">'+
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'+
     '<b style="font-size:13px;font-weight:800">예산</b>'+
     '<button data-budget="1" style="font-size:11.5px;font-weight:700;color:var(--accent)">설정</button></div>';
+
   rows.forEach(function(r,i){
     var pct=Math.min(100, Math.round(r.used/r.cap*100)), over=r.used>r.cap;
     var left=r.cap-r.used;
-    h+='<div style="margin-bottom:'+(i===rows.length-1?0:14)+'px">'+
+    h+='<div style="margin-bottom:14px">'+
       '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px">'+
       '<span style="font-size:13px;font-weight:600">'+esc(r.name)+'</span>'+
       '<span style="flex:1"></span>'+
@@ -869,8 +884,25 @@ function budgetCard(list){
       '<span class="num" style="font-size:10.5px;color:'+(over?"var(--down)":"var(--inkSoft)")+'">'+pct+'%</span>'+
       '</div></div>';
   });
+
+  // 예산을 정하지 않았지만 쓴 분류 — 얼마 썼는지만 보여줍니다
+  if(noCap.length){
+    if(rows.length)
+      h+='<div style="font-size:11px;color:var(--inkSoft);font-weight:700;'+
+        'margin:4px 0 9px;padding-top:12px;border-top:1px solid var(--line)">예산 없이 쓴 분류</div>';
+    noCap.forEach(function(r,i){
+      h+='<div style="display:flex;align-items:center;gap:9px;margin-bottom:'+
+        (i===noCap.length-1?0:9)+'px">'+
+        '<span style="width:7px;height:7px;border-radius:999px;background:'+r.color+';flex-shrink:0"></span>'+
+        '<span style="font-size:12.5px;font-weight:600">'+esc(r.name)+'</span>'+
+        '<span style="flex:1"></span>'+
+        '<span class="num" style="font-size:12.5px;font-weight:700;color:var(--inkMid)">'+won(r.used)+'</span>'+
+        '</div>';
+    });
+  }
   return h+'</div>';
 }
+
 function txRow(x,last){
   var isT=x.type==="transfer", c=isT?null:cat(x.type,x.category);
   var tone=isT?"var(--accent)":c.color, ico=isT?"repeat":c.icon;
@@ -1032,26 +1064,6 @@ function vAssets(){
       L.forEach(function(a){ h+=accCard(a,b,f,S.acc.indexOf(a)); });
     });
   } else S.acc.forEach(function(a,i){ h+=accCard(a,b,f,i); });
-
-  // recurring
-  h+='<div style="display:flex;align-items:center;gap:6px;padding:22px 4px 10px">'+svg("repeat",14,"var(--inkMid)")+
-    '<b style="font-size:13px;font-weight:800">반복 거래</b></div>';
-  if(!S.rec.length) h+='<div class="empty" style="padding:22px 18px;font-size:12.5px">자동이체처럼 매달 반복되는 거래는<br>기록할 때 "매달 반복"을 켜면 등록돼요.</div>';
-  else S.rec.forEach(function(r){
-    var isT=r.type==="transfer", c=isT?null:cat(r.type,r.category);
-    var tone=isT?"var(--accent)":c.color, sub;
-    if(isT){ var f1=accById(r.fromAccountId),t1=accById(r.toAccountId);
-      sub=(f1?f1.name:"미지정")+" → "+(t1?t1.name:"미지정"); }
-    else { var a2=accById(r.accountId); sub=a2?a2.name:"미지정"; }
-    h+='<div style="display:flex;align-items:center;gap:10px;background:var(--card);border-radius:16px;padding:12px 13px;margin-bottom:7px;opacity:'+(r.active?1:.5)+'">'+
-      '<div class="ic" style="width:34px;height:34px;background:'+tone+'1f">'+svg(isT?"repeat":c.icon,15,tone)+'</div>'+
-      '<div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:600">'+esc(r.memo||(isT?"이체":c.label))+'</div>'+
-      '<div style="font-size:11px;color:var(--inkSoft);margin-top:1px">매달 '+r.day+'일 · '+esc(sub)+'</div></div>'+
-      '<div class="num" style="font-size:13.5px;font-weight:700;color:'+(isT?"var(--inkMid)":r.type==="expense"?"var(--down)":"var(--up)")+'">'+
-      (isT?"":r.type==="expense"?"−":"+")+won(r.amount)+'</div>'+
-      '<button data-rtog="'+r.id+'" style="padding:5px;color:'+(r.active?"var(--accent)":"var(--inkSoft)")+'">'+svg("power",14)+'</button>'+
-      '<button data-rdel="'+r.id+'" style="padding:5px;color:var(--inkSoft);opacity:.6">'+svg("trash",14)+'</button></div>';
-  });
 
   return h;
 }
@@ -1456,6 +1468,112 @@ function amtSubHtml(){
   return '<span class="num" style="font-weight:800;color:var(--ink)">= '+won(total)+'</span>원';
 }
 
+
+// 반복 거래 목록 — 설정에서 엽니다
+function mRecur(){
+  var h='<div style="font-size:12px;color:var(--inkSoft);line-height:1.7;margin-bottom:14px">'+
+    '자동이체나 구독료처럼 매달 나가는 거래예요.<br>'+
+    '기록할 때 "매달 반복"을 켜면 여기에 등록됩니다.</div>';
+
+  if(!S.rec.length){
+    return sheet("반복 거래", h+'<div style="text-align:center;font-size:13px;color:var(--inkSoft);'+
+      'padding:26px 0">등록된 반복 거래가 없어요.</div>');
+  }
+
+  var on=S.rec.filter(function(r){ return r.active; });
+  var monthly=0;
+  on.forEach(function(r){ if(r.type==="expense") monthly+=r.amount; });
+  if(monthly){
+    h+='<div style="background:var(--bg);border-radius:12px;padding:13px 14px;margin-bottom:14px;'+
+      'display:flex;align-items:baseline;gap:8px">'+
+      '<span style="font-size:12.5px;font-weight:700">매달 나가는 돈</span><span style="flex:1"></span>'+
+      '<span class="num" style="font-size:15px;font-weight:800;color:var(--down)">'+won(monthly)+'</span>'+
+      '<span style="font-size:11.5px;color:var(--inkSoft)">원</span></div>';
+  }
+
+  S.rec.forEach(function(r){
+    var isT=r.type==="transfer", c=isT?null:cat(r.type,r.category);
+    var tone=isT?"var(--accent)":c.color, sub;
+    if(isT){ var f1=accById(r.fromAccountId), t1=accById(r.toAccountId);
+      sub=(f1?f1.name:"미지정")+" → "+(t1?t1.name:"미지정"); }
+    else { var a2=accById(r.accountId); sub=a2?a2.name:"미지정"; }
+    h+='<div style="background:var(--card);border:1px solid var(--line);border-radius:16px;'+
+      'padding:12px 13px;margin-bottom:8px;opacity:'+(r.active?1:.55)+'">'+
+      '<div style="display:flex;align-items:center;gap:10px">'+
+        '<div class="ic" style="width:34px;height:34px;background:'+tone+'1f;flex-shrink:0">'+
+          svg(isT?"repeat":c.icon,15,tone)+'</div>'+
+        '<div style="flex:1;min-width:0">'+
+          '<div style="font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;'+
+            'text-overflow:ellipsis">'+esc(r.memo||(isT?"이체":c.label))+
+            (r.active?'':'<span style="font-size:10.5px;font-weight:700;color:var(--inkSoft);'+
+              'background:var(--bg);padding:2px 6px;border-radius:999px;margin-left:6px">멈춤</span>')+
+          '</div>'+
+          '<div style="font-size:11px;color:var(--inkSoft);margin-top:2px">매달 '+r.day+'일 · '+esc(sub)+'</div>'+
+        '</div>'+
+        '<div class="num" style="font-size:13.5px;font-weight:700;color:'+
+          (isT?"var(--inkMid)":r.type==="expense"?"var(--down)":"var(--up)")+'">'+
+          (isT?"":r.type==="expense"?"−":"+")+won(r.amount)+'</div>'+
+      '</div>'+
+      '<div style="display:flex;gap:6px;margin-top:10px">'+
+        '<button class="mini" data-redit="'+r.id+'">수정</button>'+
+        '<button class="mini" data-rtog="'+r.id+'" style="color:'+
+          (r.active?"var(--inkMid)":"var(--accent)")+'">'+
+          (r.active?"잠시 멈춤":"다시 시작")+'</button>'+
+        '<span style="flex:1"></span>'+
+        '<button class="mini" data-rdel="'+r.id+'" style="color:var(--down)">삭제</button>'+
+      '</div></div>';
+  });
+  return sheet("반복 거래", h);
+}
+
+// 반복 거래 수정 — 금액·제목·분류·날짜·계좌를 바꿉니다
+function mRecEdit(){
+  var r=M.rec;
+  var isT=r.type==="transfer";
+  var h='<div class="lb">금액</div>'+
+    '<input class="fld num" id="re_amt" inputmode="numeric" value="'+
+      (r.amount?Number(r.amount).toLocaleString("ko-KR"):"")+'">'+
+    '<div class="lb">제목</div>'+
+    '<input class="fld" id="re_memo" value="'+esc(r.memo||"")+'" placeholder="예: 넷플릭스">'+
+    '<div class="lb">매달 며칠</div>'+
+    '<input class="fld num" id="re_day" inputmode="numeric" value="'+esc(String(r.day||1))+'" placeholder="1~31">'+
+    '<div style="font-size:11px;color:var(--inkSoft);line-height:1.6;margin:-4px 0 14px 2px">'+
+      '31일로 두면 짧은 달에는 말일에 기록돼요.</div>';
+
+  if(!isT){
+    h+='<div class="lb">분류</div><div class="cgrid" style="margin-bottom:16px">';
+    (r.type==="income"?S.icats:S.ecats).forEach(function(c){
+      var on=r.category===c.key;
+      h+='<button class="cbtn" data-rcat="'+c.key+'" style="background:'+(on?c.color:c.color+"1a")+
+        ';color:'+(on?"#fff":c.color)+'">'+svg(c.icon,17,on?"#fff":c.color)+esc(c.label)+'</button>';
+    });
+    h+='</div>';
+    h+='<div class="lb">결제 수단</div><div class="chips" style="margin-bottom:18px">';
+    accByRecent().forEach(function(a){
+      h+='<button class="chip '+(r.accountId===a.id?"on":"")+'" data-racc="'+a.id+'">'+esc(a.name)+'</button>'; });
+    h+='</div>';
+  } else {
+    var movable=accByRecent().filter(function(a){ return !linkedCheck(a); });
+    h+='<div class="lb">보내는 곳</div><div class="chips" style="margin-bottom:14px">';
+    movable.forEach(function(a){
+      h+='<button class="chip '+(r.fromAccountId===a.id?"on":"")+'" data-rfrom="'+a.id+'">'+esc(a.name)+'</button>'; });
+    h+='</div><div class="lb">받는 곳</div><div class="chips" style="margin-bottom:18px">';
+    movable.forEach(function(a){
+      h+='<button class="chip '+(r.toAccountId===a.id?"on":"")+'" data-rto="'+a.id+'">'+esc(a.name)+'</button>'; });
+    h+='</div>';
+  }
+
+  h+='<button class="tog '+(r.active?"on":"")+'" data-rtogm="1">'+
+    svg("repeat",17,r.active?"var(--accent)":"var(--inkSoft)")+
+    '<div style="flex:1"><div style="font-size:13.5px;font-weight:600">자동 기록</div>'+
+    '<div style="font-size:11px;color:var(--inkSoft);margin-top:2px">'+
+      (r.active?"매달 자동으로 기록돼요":"멈춰 있어요. 자동으로 기록되지 않아요")+'</div></div>'+
+    '<span class="sw"><i></i></span></button>';
+
+  h+='<button class="go" data-rsave="1">저장하기</button>';
+  return sheet("반복 거래 수정", h);
+}
+
 function mSettings(){
   var h='<div class="lb">화면</div>'+
     '<button class="tog '+(S.theme==="dark"?"on":"")+'" data-theme="1" style="margin-bottom:18px">'+
@@ -1469,6 +1587,11 @@ function mSettings(){
       '<span class="ico">'+svg("chart",17,"var(--accent)")+'</span>'+
       '<span class="txt"><span class="t">예산 설정</span>'+
       '<span class="d">한 달에 쓸 금액을 정해두면 남은 금액을 보여드려요</span></span>'+
+      '<span class="arw">'+svg("right",16,"var(--inkSoft)")+'</span></button>'+
+    '<button class="setrow" data-recur="1">'+
+      '<span class="ico">'+svg("repeat",17,"var(--accent)")+'</span>'+
+      '<span class="txt"><span class="t">반복 거래</span>'+
+      '<span class="d">자동이체·구독료를 관리하고 잠시 멈출 수 있어요</span></span>'+
       '<span class="arw">'+svg("right",16,"var(--inkSoft)")+'</span></button>'+
     '<button class="setrow" data-cats="expense">'+
       '<span class="ico">'+svg("bag",17,"var(--inkMid)")+'</span>'+
@@ -1789,7 +1912,9 @@ function mCats(){
 function effTheme(){ return S.theme==="dark" ? "dark" : "light"; }
 function sheetHtml(){
   if(!M) return "";
-  return M.catKey!==undefined ? mCatDetail()
+  return M.rec ? mRecEdit()
+       : M.recur ? mRecur()
+       : M.catKey!==undefined ? mCatDetail()
        : M.changelog ? mChangelog()
        : M.backupText!==undefined ? mBackupText()
        : M.tag!==undefined ? mTag()
@@ -1861,7 +1986,7 @@ function saveAll(){ save("transactions",S.tx); save("accounts",S.acc); save("rec
 
 /* ---------- events ---------- */
 document.addEventListener("click",function(ev){
-  var el=ev.target.closest?ev.target.closest("[data-tab],[data-nav],[data-per],[data-theme],[data-smart],[data-new],[data-edit],[data-del],[data-mask],[data-close],[data-mtype],[data-macc],[data-mcat],[data-mfrom],[data-mto],[data-mrep],[data-editcats],[data-grp],[data-acc],[data-accopen],[data-accedit],[data-accdel],[data-accmv],[data-atype],[data-alink],[data-asave],[data-rtog],[data-rdel],[data-cats],[data-exp],[data-imp],[data-smsgo],[data-bt],[data-bback],[data-bsave],[data-cmv],[data-cedit],[data-cdel],[data-cnew],[data-cicon],[data-ccol],[data-ccommit],[data-csave],[data-quick],[data-search],[data-fty],[data-fcat],[data-budget],[data-bsaveall],[data-paycard],[data-settings],[data-tag],[data-copybk],[data-bedit],[data-fper],[data-wipetx],[data-wipeall],[data-hidetot],[data-accmon],[data-changelog],[data-op],[data-hf],[data-catdet],[data-catmon],#save"):null;
+  var el=ev.target.closest?ev.target.closest("[data-tab],[data-nav],[data-per],[data-theme],[data-smart],[data-new],[data-edit],[data-del],[data-mask],[data-close],[data-mtype],[data-macc],[data-mcat],[data-mfrom],[data-mto],[data-mrep],[data-editcats],[data-grp],[data-acc],[data-accopen],[data-accedit],[data-accdel],[data-accmv],[data-atype],[data-alink],[data-asave],[data-rtog],[data-rdel],[data-cats],[data-exp],[data-imp],[data-smsgo],[data-bt],[data-bback],[data-bsave],[data-cmv],[data-cedit],[data-cdel],[data-cnew],[data-cicon],[data-ccol],[data-ccommit],[data-csave],[data-quick],[data-search],[data-fty],[data-fcat],[data-budget],[data-bsaveall],[data-paycard],[data-settings],[data-tag],[data-copybk],[data-bedit],[data-fper],[data-wipetx],[data-wipeall],[data-hidetot],[data-accmon],[data-changelog],[data-op],[data-hf],[data-catdet],[data-catmon],[data-recur],[data-redit],[data-rtogm],[data-rcat],[data-racc],[data-rfrom],[data-rto],[data-rsave],#save"):null;
   if(!el) return;
   var d=el.dataset||{};
 
@@ -1975,6 +2100,23 @@ document.addEventListener("click",function(ev){
   if(d.atype){ syncAcc(); M.atype=d.atype; repaintSheet(); return; }
   if(d.alink!==undefined){ syncAcc(); M.link=d.alink; repaintSheet(); return; }
   if(d.asave!==undefined){ commitAcc(); return; }
+  if(d.recur!==undefined){ M={recur:true, back:{settings:true}}; render(); return; }
+  if(d.redit){
+    var target=S.rec.filter(function(r){ return r.id===d.redit; })[0];
+    if(target) M={rec:clone(target), back:{recur:true, back:{settings:true}}};
+    render(); return; }
+  if(d.rtogm!==undefined){ syncRec(); M.rec.active=!M.rec.active; repaintSheet(); return; }
+  if(d.rcat){ syncRec(); M.rec.category=d.rcat; repaintSheet(); return; }
+  if(d.racc){ syncRec(); M.rec.accountId=d.racc; repaintSheet(); return; }
+  if(d.rfrom){ syncRec(); M.rec.fromAccountId=d.rfrom; repaintSheet(); return; }
+  if(d.rto){ syncRec(); M.rec.toAccountId=d.rto; repaintSheet(); return; }
+  if(d.rsave!==undefined){
+    syncRec();
+    var rr=M.rec;
+    if(!rr.amount || rr.amount<1) return;
+    S.rec=S.rec.map(function(x){ return x.id===rr.id ? rr : x; });
+    save("recurring", S.rec);
+    M=M.back||null; render(); return; }
   if(d.rtog){ S.rec.forEach(function(r){ if(r.id===d.rtog) r.active=!r.active; });
     save("recurring",S.rec); render(); return; }
   if(d.rdel){ if(confirm("이 반복 거래를 지울까요? 이미 기록된 내역은 남아요.")){
@@ -2128,6 +2270,15 @@ function syncSearch(){
 function syncBudget(){
   var els=document.querySelectorAll?document.querySelectorAll("[data-bk]"):[];
   for(var i=0;i<els.length;i++) M.vals[els[i].getAttribute("data-bk")]=els[i].value.replace(/[^0-9]/g,"");
+}
+function syncRec(){
+  if(!M || !M.rec) return;
+  var a=document.getElementById("re_amt"), m=document.getElementById("re_memo"),
+      d2=document.getElementById("re_day");
+  if(a) M.rec.amount=parseInt(a.value.replace(/[^0-9]/g,""),10)||0;
+  if(m) M.rec.memo=m.value;
+  if(d2){ var v=parseInt(d2.value.replace(/[^0-9]/g,""),10);
+    M.rec.day = (v>=1 && v<=31) ? v : M.rec.day; }
 }
 function syncCat(){ var n=document.getElementById("cnm"); if(n&&M.edit) M.edit.label=n.value; }
 
