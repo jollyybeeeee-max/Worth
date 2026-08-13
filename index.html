@@ -205,8 +205,14 @@ svg{display:block}
 
 /* ---------- version ---------- */
 // 두 자리 숫자로 씁니다. 바꿀 때마다 1씩 올리고 아래 기록에 한 줄 추가하세요
-var APP_VERSION = "14";
+var APP_VERSION = "16";
 var CHANGELOG = [
+  { v:"16", items:[
+    "자산을 지워도 반복 거래가 남아 오작동하던 문제를 고쳤어요"
+  ]},
+  { v:"15", items:[
+    "반복 거래가 다가오는 순서로 정렬되고 남은 날짜가 보여요"
+  ]},
   { v:"14", items:[
     "반복 거래를 직접 추가할 수 있어요",
     "기록을 수정할 때도 매달 반복을 켜고 끌 수 있어요",
@@ -1562,8 +1568,16 @@ function mRecur(){
       '<span style="font-size:11.5px;color:var(--inkSoft)">원</span></div>';
   }
 
-  S.rec.forEach(function(r){
+  // 다가오는 순으로 — 멈춘 건 맨 아래
+  var sorted = S.rec.slice().sort(function(x,y){
+    if(x.active !== y.active) return x.active ? -1 : 1;
+    if(!x.active) return 0;
+    return daysUntil(nextPayDate(x.day)) - daysUntil(nextPayDate(y.day));
+  });
+
+  sorted.forEach(function(r){
     var isT=r.type==="transfer", c=isT?null:cat(r.type,r.category);
+    var dleft = r.active ? daysUntil(nextPayDate(r.day)) : null;
     var tone=isT?"var(--accent)":c.color, sub;
     if(isT){ var f1=accById(r.fromAccountId), t1=accById(r.toAccountId);
       sub=(f1?f1.name:"미지정")+" → "+(t1?t1.name:"미지정"); }
@@ -1579,7 +1593,10 @@ function mRecur(){
             (r.active?'':'<span style="font-size:10.5px;font-weight:700;color:var(--inkSoft);'+
               'background:var(--bg);padding:2px 6px;border-radius:999px;margin-left:6px">멈춤</span>')+
           '</div>'+
-          '<div style="font-size:11px;color:var(--inkSoft);margin-top:2px">매달 '+r.day+'일 · '+esc(sub)+'</div>'+
+          '<div style="font-size:11px;color:var(--inkSoft);margin-top:2px">'+
+            (r.active ? '<span style="color:'+(dleft<=3?"var(--down)":"var(--accent)")+
+              ';font-weight:700">'+(dleft===0?"오늘":"D-"+dleft)+'</span> · ' : '')+
+            '매달 '+r.day+'일 · '+esc(sub)+'</div>'+
         '</div>'+
         '<div class="num" style="font-size:13.5px;font-weight:700;color:'+
           (isT?"var(--inkMid)":r.type==="expense"?"var(--down)":"var(--up)")+'">'+
@@ -1964,7 +1981,7 @@ function mCats(){
       '<div class="lb">아이콘</div><div class="igrid">';
     ICONKEYS.forEach(function(k){ h+='<button data-cicon="'+k+'" class="'+(M.edit.icon===k?"on":"")+'">'+svg(k,16)+'</button>'; });
     h+='</div><div class="lb">색상</div><div class="swgrid">';
-    SW.forEach(function(c){ h+='<button data-ccol="'+encodeURIComponent(c)+'" style="aspect-ratio:1;border-radius:9px;background:'+c+
+    SW.forEach(function(c){ h+='<button data-ccol="'+encodeURIComponent(c)+'" aria-label="색상 '+c+'" style="aspect-ratio:1;border-radius:9px;background:'+c+
       ';border:'+(M.edit.color===c?"2.5px solid var(--ink)":"none")+'"></button>'; });
     h+='</div><button class="go" data-ccommit="1">'+(M.edit.key?"수정":"추가")+'</button>';
     return sheet((M.kind==="income"?"수입":"지출")+" 분류",h);
@@ -2155,7 +2172,10 @@ document.addEventListener("click",function(ev){
         return x.linkedAccountId===d.accdel?Object.assign({},x,{linkedAccountId:""}):x; });
       S.tx=S.tx.filter(function(x){ return !(x.type==="transfer"&&(x.fromAccountId===d.accdel||x.toAccountId===d.accdel)); })
         .map(function(x){ return x.accountId===d.accdel?Object.assign({},x,{accountId:""}):x; });
-      S.rec=S.rec.filter(function(r){ return !(r.type==="transfer"&&(r.fromAccountId===d.accdel||r.toAccountId===d.accdel)); });
+      // 이체 반복은 상대가 없으면 성립하지 않으니 제거하고,
+      // 일반 반복은 계좌만 비워 남겨둡니다 (다시 고르면 계속 쓸 수 있게)
+      S.rec=S.rec.filter(function(r){ return !(r.type==="transfer"&&(r.fromAccountId===d.accdel||r.toAccountId===d.accdel)); })
+        .map(function(r){ return r.accountId===d.accdel?Object.assign({},r,{accountId:""}):r; });
       saveAll(); render(); } return; }
   if(d.paycard){
     var card=accById(d.paycard);
