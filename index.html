@@ -205,8 +205,11 @@ svg{display:block}
 
 /* ---------- version ---------- */
 // 두 자리 숫자로 씁니다. 바꿀 때마다 1씩 올리고 아래 기록에 한 줄 추가하세요
-var APP_VERSION = "16";
+var APP_VERSION = "17";
 var CHANGELOG = [
+  { v:"17", items:[
+    "자산 수정에서 처음 금액 대신 지금 금액이 보여요"
+  ]},
   { v:"16", items:[
     "자산을 지워도 반복 거래가 남아 오작동하던 문제를 고쳤어요"
   ]},
@@ -1372,10 +1375,19 @@ function mAcc(){
       funds.forEach(function(a){ h+='<button class="chip '+(M.link===a.id?"on":"")+'" data-alink="'+a.id+'">'+esc(a.name)+'</button>'; });
       h+='</div><div style="font-size:11px;color:var(--inkSoft);line-height:1.5;margin-bottom:10px">연결하면 이 카드로 쓴 금액이 해당 통장에서 빠져요.</div>'; }
   }
-  if(!(M.atype==="check_card"&&M.link))
-    h+='<input class="fld num" id="ainit" inputmode="numeric" placeholder="'+
-      (M.atype==="credit_card"?"기존 미결제 금액 (없으면 0)":"현재 잔액")+'" value="'+
+  if(!(M.atype==="check_card"&&M.link)){
+    var isEditAcc = !!M.editId;
+    h+='<div class="lb">'+(M.atype==="credit_card"?"미결제 금액":"현재 잔액")+'</div>'+
+      '<input class="fld num" id="ainit" inputmode="numeric" placeholder="'+
+      (M.atype==="credit_card"?"0":"0")+'" value="'+
       (M.init?Number(M.init).toLocaleString("ko-KR"):"")+'">';
+    h+='<div style="font-size:11px;color:var(--inkSoft);line-height:1.6;margin:-4px 0 12px 2px">'+
+      (isEditAcc
+        ? "지금 금액이에요. 실제와 다르면 고쳐 주세요. 기록은 그대로 유지돼요."
+        : (M.atype==="credit_card" ? "아직 결제하지 않은 금액이 있으면 적어 주세요."
+                                   : "지금 통장에 있는 금액을 적어 주세요."))+
+      '</div>';
+  }
 
   if(M.atype==="installment"){
     h+='<div class="lb" style="margin-top:6px">만기일</div>'+
@@ -2160,12 +2172,20 @@ document.addEventListener("click",function(ev){
     render(); return; }
   if(d.hidetot!==undefined){ S.hideTotal=!S.hideTotal; save("hideTotal",S.hideTotal); render(); return; }
   if(d.accmon){ S.accMOff += parseInt(d.accmon,10); render(); return; }
-  if(d.acc==="new"){ M={atype:"cash",name:"",init:"",link:"",mat:"",mon:"",day:"",
+  if(d.acc==="new"){ M={atype:"cash",name:"",init:"",baseDelta:0,link:"",mat:"",mon:"",day:"",
     cycle:"prev",cycleDay:"",editId:null}; render(); return; }
   if(d.accedit){ var a=accById(d.accedit);
-    if(a) M={atype:a.type,name:a.name,init:String(a.initial),link:a.linkedAccountId||"",
+    if(a){
+      var bNow=balances();
+      // 화면에 보이는 현재 금액 (신용카드는 미결제액)
+      var shownNow = linkedCheck(a) ? 0
+        : isCredit(a) ? -(bNow[a.id]||0) : (bNow[a.id]||0);
+      // 기록 때문에 생긴 변동분 — 저장할 때 다시 빼줍니다
+      var delta = shownNow - a.initial;
+      M={atype:a.type,name:a.name,init:String(shownNow),baseDelta:delta,link:a.linkedAccountId||"",
       mat:a.maturity||"",mon:a.monthly?String(a.monthly):"",day:a.payDay?String(a.payDay):"",
       cycle:a.cycle||"prev", cycleDay:a.cycleDay?String(a.cycleDay):"", editId:a.id};
+    }
     render(); return; }
   if(d.accdel){ if(confirm("이 자산을 지울까요? 관련 이체 기록도 함께 지워져요.")){
       S.acc=S.acc.filter(function(x){return x.id!==d.accdel;}).map(function(x){
@@ -2519,7 +2539,10 @@ function commitAcc(){
   syncAcc();
   if(!M.name.trim()) return;
   var link=M.atype==="check_card"?M.link:"";
-  var payload={name:M.name.trim(),type:M.atype,initial:link?0:(parseInt(M.init,10)||0),linkedAccountId:link,
+  // 입력한 값은 "지금 금액"이므로, 기록으로 생긴 변동분을 빼야 시작 금액이 됩니다
+  var typed = parseInt(M.init,10)||0;
+  var startAmt = link ? 0 : typed - (M.baseDelta||0);
+  var payload={name:M.name.trim(),type:M.atype,initial:startAmt,linkedAccountId:link,
     maturity:M.atype==="installment"?(M.mat||""):"",
     monthly:M.atype==="installment"?(parseInt(M.mon,10)||0):0,
     payDay:M.atype==="credit_card"?(parseInt(M.day,10)||0):0,
