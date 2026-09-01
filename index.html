@@ -154,11 +154,8 @@ body::before{content:"";position:fixed;inset:-2px;background:var(--bg);z-index:0
 .opb{flex:0 0 auto;width:36px;height:32px;border-radius:9px;padding:0;
   display:flex;align-items:center;justify-content:center;
   background:var(--bg);font-size:13px;font-weight:700;color:var(--inkMid)}
-.barscroll{display:flex;align-items:flex-end;gap:6px;height:68px;margin-bottom:16px;
-  overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;
-  scroll-behavior:smooth;padding:0 2px 2px;scrollbar-width:none}
-.barscroll::-webkit-scrollbar{display:none}
-.barcol{flex:0 0 calc((100% - 30px) / 6);min-width:34px;display:flex;flex-direction:column;
+.barrow{display:flex;align-items:flex-end;gap:6px;height:68px;margin-bottom:16px;padding:0 2px 2px}
+.barcol{flex:1 1 0;min-width:0;display:flex;flex-direction:column;
   align-items:center;justify-content:flex-end;gap:4px;height:100%;padding:0}
 .barfill{width:100%;max-width:26px;border-radius:5px}
 .barlbl{font-size:10px;color:var(--inkSoft);font-weight:500}
@@ -214,8 +211,11 @@ svg{display:block}
 
 /* ---------- version ---------- */
 // 두 자리 숫자로 씁니다. 바꿀 때마다 1씩 올리고 아래 기록에 한 줄 추가하세요
-var APP_VERSION = "20";
+var APP_VERSION = "21";
 var CHANGELOG = [
+  { v:"21", items:[
+    "분류 세부 그래프를 6개월로 되돌리고 화살표로 넘기게 했어요"
+  ]},
   { v:"20", items:[
     "지난달을 골라도 이후 달이 계속 보이도록 그래프를 고쳤어요"
   ]},
@@ -1828,14 +1828,14 @@ function mCatDetail(){
   }).sort(function(a,b){ return a.date<b.date?1:-1; });
   var total=mine.reduce(function(s2,x){ return s2+x.amount; },0);
 
-  // 막대는 "이번 달 기준" 12개월로 고정합니다.
-  // 선택한 달을 기준으로 하면 그 뒤 달이 잘려 보이지 않기 때문입니다.
-  var now=new Date();
-  var right = Math.max(0, M.mOff);          // 미래로 가 있으면 거기까지
-  var left  = Math.min(-11, M.mOff);        // 12개월 밖으로 가면 그만큼 넓힘
+  // 보고 있는 달을 가운데 두고 앞뒤로 6개월을 보여줍니다.
+  // (선택한 달 뒤쪽도 보이도록 오른쪽에 2칸을 남깁니다)
+  var right = M.mOff + 2;
+  var left  = right - 5;
+  var nowD=new Date();
   var bars=[];
   for(var i=left; i<=right; i++){
-    var d=new Date(now.getFullYear(), now.getMonth()+i, 1);
+    var d=new Date(nowD.getFullYear(), nowD.getMonth()+i, 1);
     var k=d.getFullYear()+"-"+pad(d.getMonth()+1);
     var v=0;
     S.tx.forEach(function(x){
@@ -1862,7 +1862,7 @@ function mCatDetail(){
 
   // 월별 막대
   // 12개월을 담고 화면에는 6개씩 — 옆으로 밀어 나머지를 봅니다
-  h+='<div id="catbars" class="barscroll">';
+  h+='<div class="barrow">';
   bars.forEach(function(b){
     var ht=Math.max(3, Math.round(b.value/mx*54));
     h+='<button data-catgo="'+b.off+'" aria-label="'+b.label+'월 보기" '+
@@ -2060,21 +2060,6 @@ function sheetHtml(){
        : mTx();
 }
 // 시트 내부만 교체 — 스크롤 위치와 입력 포커스를 지킵니다
-// 막대 그래프를 보고 있는 달 위치로 맞춥니다 (오른쪽 끝이 현재 보는 달)
-function alignBars(){
-  var box=document.getElementById("catbars");
-  if(!box || !box.querySelectorAll) return;
-  var cols=box.querySelectorAll(".barcol");
-  if(!cols.length) return;
-  var idx=-1;
-  for(var i=0;i<cols.length;i++)
-    if(cols[i].classList && cols[i].classList.contains("now")){ idx=i; break; }
-  if(idx<0) idx=cols.length-1;
-  // 선택한 달이 가운데쯤 오도록 (화면에 6개가 보이므로 3칸 앞으로)
-  var colW=(box.scrollWidth||0)/cols.length;
-  var target=Math.max(0, Math.round(colW*(idx-3)));
-  box.scrollLeft=target;
-}
 function repaintSheet(){
   var host=document.getElementById("sheetHost");
   if(!host || !M) { render(); return; }
@@ -2351,8 +2336,8 @@ document.addEventListener("click",function(ev){
     repaintSheet(); return; }
   if(d.tag){ M={tag:d.tag,back:M}; render(); return; }
   if(d.catdet){ M={catKey:d.catdet, mOff:S.period==="year"?0:S.mOff}; render(); return; }
-  if(d.catmon){ M.mOff += parseInt(d.catmon,10); repaintSheet(); alignBars(); return; }
-  if(d.catgo!==undefined){ M.mOff = parseInt(d.catgo,10); repaintSheet(); alignBars(); return; }
+  if(d.catmon){ M.mOff += parseInt(d.catmon,10); repaintSheet(); return; }
+  if(d.catgo!==undefined){ M.mOff = parseInt(d.catgo,10); repaintSheet(); return; }
   if(d.fty){ syncSearch(); M.ftype=d.fty; M.fcat=""; repaintSheet(); return; }
   if(d.fcat!==undefined){ syncSearch(); M.fcat=d.fcat; repaintSheet(); return; }
   if(d.budget!==undefined){ M={vals:Object.assign({},S.budgets),back:M&&M.settings?{settings:true}:null}; render(); return; }
