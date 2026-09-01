@@ -214,8 +214,11 @@ svg{display:block}
 
 /* ---------- version ---------- */
 // 두 자리 숫자로 씁니다. 바꿀 때마다 1씩 올리고 아래 기록에 한 줄 추가하세요
-var APP_VERSION = "19";
+var APP_VERSION = "20";
 var CHANGELOG = [
+  { v:"20", items:[
+    "지난달을 골라도 이후 달이 계속 보이도록 그래프를 고쳤어요"
+  ]},
   { v:"19", items:[
     "분류 세부 그래프를 12개월치로 늘리고 옆으로 밀어볼 수 있어요"
   ]},
@@ -1825,15 +1828,19 @@ function mCatDetail(){
   }).sort(function(a,b){ return a.date<b.date?1:-1; });
   var total=mine.reduce(function(s2,x){ return s2+x.amount; },0);
 
-  // 최근 6개월 흐름
+  // 막대는 "이번 달 기준" 12개월로 고정합니다.
+  // 선택한 달을 기준으로 하면 그 뒤 달이 잘려 보이지 않기 때문입니다.
+  var now=new Date();
+  var right = Math.max(0, M.mOff);          // 미래로 가 있으면 거기까지
+  var left  = Math.min(-11, M.mOff);        // 12개월 밖으로 가면 그만큼 넓힘
   var bars=[];
-  for(var i=11;i>=0;i--){
-    var d=new Date(t.getFullYear(), t.getMonth()-i, 1);
+  for(var i=left; i<=right; i++){
+    var d=new Date(now.getFullYear(), now.getMonth()+i, 1);
     var k=d.getFullYear()+"-"+pad(d.getMonth()+1);
     var v=0;
     S.tx.forEach(function(x){
       if(x.type==="expense" && x.category===key && x.date.slice(0,7)===k) v+=x.amount; });
-    bars.push({label:(d.getMonth()+1)+"", value:v, now:k===ym, off:-i});
+    bars.push({label:(d.getMonth()+1)+"", value:v, now:k===ym, off:i});
   }
   var mx=1; bars.forEach(function(b){ mx=Math.max(mx,b.value); });
 
@@ -1858,7 +1865,7 @@ function mCatDetail(){
   h+='<div id="catbars" class="barscroll">';
   bars.forEach(function(b){
     var ht=Math.max(3, Math.round(b.value/mx*54));
-    h+='<button data-catgo="'+(M.mOff+b.off)+'" aria-label="'+b.label+'월 보기" '+
+    h+='<button data-catgo="'+b.off+'" aria-label="'+b.label+'월 보기" '+
       'class="barcol'+(b.now?" now":"")+'">'+
       '<div class="barfill" style="height:'+ht+'px;background:'+c.color+(b.now?"":"55")+'"></div>'+
       '<span class="barlbl">'+b.label+'</span></button>';
@@ -2056,8 +2063,17 @@ function sheetHtml(){
 // 막대 그래프를 보고 있는 달 위치로 맞춥니다 (오른쪽 끝이 현재 보는 달)
 function alignBars(){
   var box=document.getElementById("catbars");
-  if(!box || !box.scrollWidth) return;
-  box.scrollLeft = box.scrollWidth;   // 마지막(=보는 달)이 오른쪽에 오도록
+  if(!box || !box.querySelectorAll) return;
+  var cols=box.querySelectorAll(".barcol");
+  if(!cols.length) return;
+  var idx=-1;
+  for(var i=0;i<cols.length;i++)
+    if(cols[i].classList && cols[i].classList.contains("now")){ idx=i; break; }
+  if(idx<0) idx=cols.length-1;
+  // 선택한 달이 가운데쯤 오도록 (화면에 6개가 보이므로 3칸 앞으로)
+  var colW=(box.scrollWidth||0)/cols.length;
+  var target=Math.max(0, Math.round(colW*(idx-3)));
+  box.scrollLeft=target;
 }
 function repaintSheet(){
   var host=document.getElementById("sheetHost");
