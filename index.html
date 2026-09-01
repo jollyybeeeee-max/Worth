@@ -154,6 +154,15 @@ body::before{content:"";position:fixed;inset:-2px;background:var(--bg);z-index:0
 .opb{flex:0 0 auto;width:36px;height:32px;border-radius:9px;padding:0;
   display:flex;align-items:center;justify-content:center;
   background:var(--bg);font-size:13px;font-weight:700;color:var(--inkMid)}
+.barscroll{display:flex;align-items:flex-end;gap:6px;height:68px;margin-bottom:16px;
+  overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;
+  scroll-behavior:smooth;padding:0 2px 2px;scrollbar-width:none}
+.barscroll::-webkit-scrollbar{display:none}
+.barcol{flex:0 0 calc((100% - 30px) / 6);min-width:34px;display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-end;gap:4px;height:100%;padding:0}
+.barfill{width:100%;max-width:26px;border-radius:5px}
+.barlbl{font-size:10px;color:var(--inkSoft);font-weight:500}
+.barcol.now .barlbl{color:var(--ink);font-weight:700}
 .chips{display:flex;gap:7px;overflow-x:auto;padding-bottom:3px;-webkit-overflow-scrolling:touch;
   scroll-behavior:smooth;overscroll-behavior-x:contain}
 .chip{flex-shrink:0;padding:9px 14px;border-radius:999px;background:var(--bg);
@@ -205,8 +214,14 @@ svg{display:block}
 
 /* ---------- version ---------- */
 // 두 자리 숫자로 씁니다. 바꿀 때마다 1씩 올리고 아래 기록에 한 줄 추가하세요
-var APP_VERSION = "17";
+var APP_VERSION = "19";
 var CHANGELOG = [
+  { v:"19", items:[
+    "분류 세부 그래프를 12개월치로 늘리고 옆으로 밀어볼 수 있어요"
+  ]},
+  { v:"18", items:[
+    "분류 세부에서 막대를 누르면 그 달로 바로 넘어가요"
+  ]},
   { v:"17", items:[
     "자산 수정에서 처음 금액 대신 지금 금액이 보여요"
   ]},
@@ -1812,20 +1827,25 @@ function mCatDetail(){
 
   // 최근 6개월 흐름
   var bars=[];
-  for(var i=5;i>=0;i--){
+  for(var i=11;i>=0;i--){
     var d=new Date(t.getFullYear(), t.getMonth()-i, 1);
     var k=d.getFullYear()+"-"+pad(d.getMonth()+1);
     var v=0;
     S.tx.forEach(function(x){
       if(x.type==="expense" && x.category===key && x.date.slice(0,7)===k) v+=x.amount; });
-    bars.push({label:(d.getMonth()+1)+"", value:v, now:k===ym});
+    bars.push({label:(d.getMonth()+1)+"", value:v, now:k===ym, off:-i});
   }
   var mx=1; bars.forEach(function(b){ mx=Math.max(mx,b.value); });
 
   var h='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'+
     '<button class="mini" data-catmon="-1" style="padding:6px 10px">'+svg("left",14)+'</button>'+
     '<div style="text-align:center">'+
-      '<div style="font-size:13px;font-weight:700">'+esc(lbl)+'</div>'+
+      (M.mOff===0
+        ? '<div style="font-size:13px;font-weight:700">'+esc(lbl)+'</div>'
+        : '<button data-catgo="0" style="font-size:13px;font-weight:700;display:flex;'+
+          'align-items:center;gap:5px">'+esc(lbl)+
+          '<span style="font-size:10px;font-weight:600;color:var(--accent);'+
+          'background:var(--accentSoft);padding:2px 6px;border-radius:999px">이번 달로</span></button>')+
       '<div class="num" style="font-size:17px;font-weight:800;color:'+c.color+';margin-top:3px">'+
         won(total)+'<span style="font-size:12px;font-weight:600">원</span></div>'+
       '<div style="font-size:11px;color:var(--inkSoft);margin-top:2px">'+mine.length+'건</div>'+
@@ -1834,15 +1854,14 @@ function mCatDetail(){
     '</div>';
 
   // 월별 막대
-  h+='<div style="display:flex;align-items:flex-end;gap:6px;height:64px;margin-bottom:16px;'+
-    'padding:0 4px">';
+  // 12개월을 담고 화면에는 6개씩 — 옆으로 밀어 나머지를 봅니다
+  h+='<div id="catbars" class="barscroll">';
   bars.forEach(function(b){
     var ht=Math.max(3, Math.round(b.value/mx*54));
-    h+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">'+
-      '<div style="width:100%;max-width:26px;height:'+ht+'px;border-radius:5px;background:'+
-        c.color+(b.now?"":"55")+'"></div>'+
-      '<span style="font-size:10px;color:'+(b.now?"var(--ink)":"var(--inkSoft)")+
-        ';font-weight:'+(b.now?"700":"500")+'">'+b.label+'</span></div>';
+    h+='<button data-catgo="'+(M.mOff+b.off)+'" aria-label="'+b.label+'월 보기" '+
+      'class="barcol'+(b.now?" now":"")+'">'+
+      '<div class="barfill" style="height:'+ht+'px;background:'+c.color+(b.now?"":"55")+'"></div>'+
+      '<span class="barlbl">'+b.label+'</span></button>';
   });
   h+='</div>';
 
@@ -1885,7 +1904,7 @@ function mTag(){
   if(months.length>1){
     var mx=1; months.forEach(function(m){ mx=Math.max(mx,Math.abs(byMonth[m])); });
     h+='<div style="margin-bottom:16px">';
-    months.forEach(function(m){
+    months.forEach(function(m, mi){
       var v=Math.abs(byMonth[m]);
       h+='<div style="display:flex;align-items:center;gap:9px;margin-bottom:7px">'+
         '<span style="width:42px;font-size:11px;color:var(--inkSoft);flex-shrink:0">'+(+m.slice(5))+'월</span>'+
@@ -2034,6 +2053,12 @@ function sheetHtml(){
        : mTx();
 }
 // 시트 내부만 교체 — 스크롤 위치와 입력 포커스를 지킵니다
+// 막대 그래프를 보고 있는 달 위치로 맞춥니다 (오른쪽 끝이 현재 보는 달)
+function alignBars(){
+  var box=document.getElementById("catbars");
+  if(!box || !box.scrollWidth) return;
+  box.scrollLeft = box.scrollWidth;   // 마지막(=보는 달)이 오른쪽에 오도록
+}
 function repaintSheet(){
   var host=document.getElementById("sheetHost");
   if(!host || !M) { render(); return; }
@@ -2093,7 +2118,7 @@ function saveAll(){ save("transactions",S.tx); save("accounts",S.acc); save("rec
 
 /* ---------- events ---------- */
 document.addEventListener("click",function(ev){
-  var el=ev.target.closest?ev.target.closest("[data-tab],[data-nav],[data-per],[data-theme],[data-smart],[data-new],[data-edit],[data-del],[data-mask],[data-close],[data-mtype],[data-macc],[data-mcat],[data-mfrom],[data-mto],[data-mrep],[data-editcats],[data-grp],[data-acc],[data-accopen],[data-accedit],[data-accdel],[data-accmv],[data-atype],[data-alink],[data-asave],[data-rtog],[data-rdel],[data-cats],[data-exp],[data-imp],[data-smsgo],[data-bt],[data-bback],[data-bsave],[data-cmv],[data-cedit],[data-cdel],[data-cnew],[data-cicon],[data-ccol],[data-ccommit],[data-csave],[data-quick],[data-search],[data-fty],[data-fcat],[data-budget],[data-bsaveall],[data-paycard],[data-settings],[data-tag],[data-copybk],[data-bedit],[data-fper],[data-wipetx],[data-wipeall],[data-hidetot],[data-accmon],[data-changelog],[data-op],[data-hf],[data-catdet],[data-catmon],[data-recur],[data-redit],[data-rtogm],[data-rcat],[data-racc],[data-rfrom],[data-rto],[data-rsave],[data-rnew],[data-rtype],[data-acyc],#save"):null;
+  var el=ev.target.closest?ev.target.closest("[data-tab],[data-nav],[data-per],[data-theme],[data-smart],[data-new],[data-edit],[data-del],[data-mask],[data-close],[data-mtype],[data-macc],[data-mcat],[data-mfrom],[data-mto],[data-mrep],[data-editcats],[data-grp],[data-acc],[data-accopen],[data-accedit],[data-accdel],[data-accmv],[data-atype],[data-alink],[data-asave],[data-rtog],[data-rdel],[data-cats],[data-exp],[data-imp],[data-smsgo],[data-bt],[data-bback],[data-bsave],[data-cmv],[data-cedit],[data-cdel],[data-cnew],[data-cicon],[data-ccol],[data-ccommit],[data-csave],[data-quick],[data-search],[data-fty],[data-fcat],[data-budget],[data-bsaveall],[data-paycard],[data-settings],[data-tag],[data-copybk],[data-bedit],[data-fper],[data-wipetx],[data-wipeall],[data-hidetot],[data-accmon],[data-changelog],[data-op],[data-hf],[data-catdet],[data-catmon],[data-recur],[data-redit],[data-rtogm],[data-rcat],[data-racc],[data-rfrom],[data-rto],[data-rsave],[data-rnew],[data-rtype],[data-acyc],[data-catgo],#save"):null;
   if(!el) return;
   var d=el.dataset||{};
 
@@ -2310,7 +2335,8 @@ document.addEventListener("click",function(ev){
     repaintSheet(); return; }
   if(d.tag){ M={tag:d.tag,back:M}; render(); return; }
   if(d.catdet){ M={catKey:d.catdet, mOff:S.period==="year"?0:S.mOff}; render(); return; }
-  if(d.catmon){ M.mOff += parseInt(d.catmon,10); repaintSheet(); return; }
+  if(d.catmon){ M.mOff += parseInt(d.catmon,10); repaintSheet(); alignBars(); return; }
+  if(d.catgo!==undefined){ M.mOff = parseInt(d.catgo,10); repaintSheet(); alignBars(); return; }
   if(d.fty){ syncSearch(); M.ftype=d.fty; M.fcat=""; repaintSheet(); return; }
   if(d.fcat!==undefined){ syncSearch(); M.fcat=d.fcat; repaintSheet(); return; }
   if(d.budget!==undefined){ M={vals:Object.assign({},S.budgets),back:M&&M.settings?{settings:true}:null}; render(); return; }
