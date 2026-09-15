@@ -211,8 +211,12 @@ svg{display:block}
 
 /* ---------- version ---------- */
 // 두 자리 숫자로 씁니다. 바꿀 때마다 1씩 올리고 아래 기록에 한 줄 추가하세요
-var APP_VERSION = "21";
+var APP_VERSION = "22";
 var CHANGELOG = [
+  { v:"22", items:[
+    "카드 청구 기간이 끝나지 않았으면 '집계 중'으로 알려줘요",
+    "카드 결제를 마치면 실제 낸 금액이 보이고, 할인분을 정리할 수 있어요"
+  ]},
   { v:"21", items:[
     "분류 세부 그래프를 6개월로 되돌리고 화살표로 넘기게 했어요"
   ]},
@@ -585,6 +589,16 @@ function billedAmount(card, payDate){
   S.tx.forEach(function(x){
     if(x.type!=="expense" || x.accountId!==card.id) return;
     if(x.date >= r.from && x.date <= r.to) sum += x.amount;
+  });
+  return sum;
+}
+// 이 청구 기간에 대해 실제 결제한 금액 (기간 종료일 이후 카드로 들어온 이체)
+function paidForPeriod(card, payDate){
+  var r=billingRange(card, payDate);
+  var sum=0;
+  S.tx.forEach(function(x){
+    if(x.type!=="transfer" || x.toAccountId!==card.id) return;
+    if(x.date > r.to && x.date <= payDate) sum += x.amount;
   });
   return sum;
 }
@@ -1201,21 +1215,48 @@ function accCard(a,b,f,idx){
       var dd=due?daysUntil(due):null;
       var billed=a.payDay?billedAmount(a,due):0;
       var rng=a.payDay?billingRange(a,due):null;
+      // 청구 기간이 아직 안 끝났으면 금액이 더 늘어날 수 있습니다
+      var openPeriod = rng ? (rng.to >= today()) : false;
+      var paid = a.payDay ? paidForPeriod(a, due) : 0;
+      var diff = billed - paid;          // 할인·캐시백 등으로 덜 냈으면 양수
       h+='<div style="margin-top:12px;padding:12px 13px;background:var(--bg);border-radius:12px">'+
         '<div style="display:flex;align-items:center;gap:10px">'+
         '<div style="flex:1;min-width:0">'+
         '<div style="font-size:11.5px;font-weight:700;color:var(--inkMid)">'+
         (a.payDay?("결제일 D-"+dd+" · 매달 "+a.payDay+"일"):"결제일 미설정")+'</div>'+
         (rng?'<div class="num" style="font-size:10.5px;color:var(--inkSoft);margin-top:3px">'+
-          esc(rng.from.slice(5).replace("-","."))+' ~ '+esc(rng.to.slice(5).replace("-","."))+' 사용분</div>':'')+
+          esc(rng.from.slice(5).replace("-","."))+' ~ '+esc(rng.to.slice(5).replace("-","."))+' 사용분'+
+          (openPeriod?'<span style="color:var(--accent);font-weight:700"> · 집계 중</span>':'')+
+          '</div>':'')+
         '</div>'+
-        (a.payDay?'<div style="text-align:right"><div style="font-size:10px;color:var(--inkSoft);font-weight:600">결제 예정</div>'+
+        (a.payDay?'<div style="text-align:right"><div style="font-size:10px;color:var(--inkSoft);font-weight:600">'+
+          (openPeriod?"현재까지":"결제 예정")+'</div>'+
           '<div class="num" style="font-size:15px;font-weight:800;color:var(--down);margin-top:2px">'+
           mask(billed,1)+'</div></div>':'')+
         '</div>';
-      if(a.payDay && billed>0)
+      if(a.payDay && paid>0){
+        h+='<div style="margin-top:10px;padding-top:9px;border-top:1px solid var(--line)">'+
+          '<div style="display:flex;align-items:baseline;gap:8px">'+
+          '<span style="font-size:11.5px;font-weight:700;color:var(--up)">결제 완료</span>'+
+          '<span style="flex:1"></span>'+
+          '<span class="num" style="font-size:13px;font-weight:700">'+mask(paid,1)+'</span>'+
+          '<span style="font-size:10.5px;color:var(--inkSoft)">원</span></div>';
+        if(diff>0)
+          h+='<div style="display:flex;align-items:center;gap:8px;margin-top:8px">'+
+            '<span style="font-size:11px;color:var(--inkSoft);flex:1">청구액보다 '+won(diff)+'원 적게 냈어요</span>'+
+            '<button class="mini" data-carddisc="'+a.id+'|'+diff+'" style="color:var(--accent);'+
+            'padding:6px 11px">할인으로 처리</button></div>';
+        else if(diff<0)
+          h+='<div style="font-size:11px;color:var(--inkSoft);margin-top:6px">'+
+            '청구액보다 '+won(-diff)+'원 더 냈어요</div>';
+        h+='</div>';
+      }
+      else if(a.payDay && billed>0 && !openPeriod)
         h+='<button class="mini" data-paycard="'+a.id+'" style="width:100%;margin-top:10px;'+
           'background:var(--accent);color:#fff;padding:10px">결제하기</button>';
+      else if(a.payDay && openPeriod)
+        h+='<div style="font-size:11px;color:var(--inkSoft);line-height:1.6;margin-top:8px">'+
+          esc(rng.to.slice(5).replace("-","."))+'까지 쓴 만큼 '+a.payDay+'일에 청구돼요. 아직 늘어날 수 있어요.</div>';
       else if(!a.payDay)
         h+='<div style="font-size:11px;color:var(--inkSoft);margin-top:6px">'+
           '수정에서 결제일을 정하면 예정 금액을 계산해드려요.</div>';
@@ -2119,7 +2160,7 @@ function saveAll(){ save("transactions",S.tx); save("accounts",S.acc); save("rec
 
 /* ---------- events ---------- */
 document.addEventListener("click",function(ev){
-  var el=ev.target.closest?ev.target.closest("[data-tab],[data-nav],[data-per],[data-theme],[data-smart],[data-new],[data-edit],[data-del],[data-mask],[data-close],[data-mtype],[data-macc],[data-mcat],[data-mfrom],[data-mto],[data-mrep],[data-editcats],[data-grp],[data-acc],[data-accopen],[data-accedit],[data-accdel],[data-accmv],[data-atype],[data-alink],[data-asave],[data-rtog],[data-rdel],[data-cats],[data-exp],[data-imp],[data-smsgo],[data-bt],[data-bback],[data-bsave],[data-cmv],[data-cedit],[data-cdel],[data-cnew],[data-cicon],[data-ccol],[data-ccommit],[data-csave],[data-quick],[data-search],[data-fty],[data-fcat],[data-budget],[data-bsaveall],[data-paycard],[data-settings],[data-tag],[data-copybk],[data-bedit],[data-fper],[data-wipetx],[data-wipeall],[data-hidetot],[data-accmon],[data-changelog],[data-op],[data-hf],[data-catdet],[data-catmon],[data-recur],[data-redit],[data-rtogm],[data-rcat],[data-racc],[data-rfrom],[data-rto],[data-rsave],[data-rnew],[data-rtype],[data-acyc],[data-catgo],#save"):null;
+  var el=ev.target.closest?ev.target.closest("[data-tab],[data-nav],[data-per],[data-theme],[data-smart],[data-new],[data-edit],[data-del],[data-mask],[data-close],[data-mtype],[data-macc],[data-mcat],[data-mfrom],[data-mto],[data-mrep],[data-editcats],[data-grp],[data-acc],[data-accopen],[data-accedit],[data-accdel],[data-accmv],[data-atype],[data-alink],[data-asave],[data-rtog],[data-rdel],[data-cats],[data-exp],[data-imp],[data-smsgo],[data-bt],[data-bback],[data-bsave],[data-cmv],[data-cedit],[data-cdel],[data-cnew],[data-cicon],[data-ccol],[data-ccommit],[data-csave],[data-quick],[data-search],[data-fty],[data-fcat],[data-budget],[data-bsaveall],[data-paycard],[data-settings],[data-tag],[data-copybk],[data-bedit],[data-fper],[data-wipetx],[data-wipeall],[data-hidetot],[data-accmon],[data-changelog],[data-op],[data-hf],[data-catdet],[data-catmon],[data-recur],[data-redit],[data-rtogm],[data-rcat],[data-racc],[data-rfrom],[data-rto],[data-rsave],[data-rnew],[data-rtype],[data-acyc],[data-catgo],[data-carddisc],#save"):null;
   if(!el) return;
   var d=el.dataset||{};
 
@@ -2223,6 +2264,15 @@ document.addEventListener("click",function(ev){
       S.rec=S.rec.filter(function(r){ return !(r.type==="transfer"&&(r.fromAccountId===d.accdel||r.toAccountId===d.accdel)); })
         .map(function(r){ return r.accountId===d.accdel?Object.assign({},r,{accountId:""}):r; });
       saveAll(); render(); } return; }
+  if(d.carddisc){
+    var dp=d.carddisc.split("|"), cid=dp[0], amt=parseInt(dp[1],10)||0;
+    if(!amt) return;
+    if(!confirm(won(amt)+"원을 할인·캐시백으로 기록할까요?\n카드 미결제액에서 빠집니다.")) return;
+    var inc=S.icats[S.icats.length-1] || S.icats[0];
+    S.tx.push({id:uid(), type:"income", category:inc?inc.key:"etc_income", amount:amt,
+      memo:"카드 할인", note:"", date:today(), accountId:cid});
+    save("transactions", S.tx);
+    render(); return; }
   if(d.paycard){
     var card=accById(d.paycard);
     if(card){
