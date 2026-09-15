@@ -211,8 +211,11 @@ svg{display:block}
 
 /* ---------- version ---------- */
 // 두 자리 숫자로 씁니다. 바꿀 때마다 1씩 올리고 아래 기록에 한 줄 추가하세요
-var APP_VERSION = "22";
+var APP_VERSION = "23";
 var CHANGELOG = [
+  { v:"23", items:[
+    "이미 지난 결제일의 청구분도 뒤늦게 기록할 수 있어요"
+  ]},
   { v:"22", items:[
     "카드 청구 기간이 끝나지 않았으면 '집계 중'으로 알려줘요",
     "카드 결제를 마치면 실제 낸 금액이 보이고, 할인분을 정리할 수 있어요"
@@ -601,6 +604,14 @@ function paidForPeriod(card, payDate){
     if(x.date > r.to && x.date <= payDate) sum += x.amount;
   });
   return sum;
+}
+// 오늘 기준으로 이미 지나간 가장 최근 결제일
+function prevPayDate(day){
+  if(!day) return "";
+  var t=new Date(today()+"T00:00:00"), y=t.getFullYear(), m=t.getMonth()+1;
+  var d=Math.min(day, dim(y,m));
+  if(t.getDate() < d){ m--; if(m<1){m=12;y--;} d=Math.min(day, dim(y,m)); }
+  return y+"-"+pad(m)+"-"+pad(d);
 }
 function nextPayDate(day){
   if(!day) return today();
@@ -1219,6 +1230,14 @@ function accCard(a,b,f,idx){
       var openPeriod = rng ? (rng.to >= today()) : false;
       var paid = a.payDay ? paidForPeriod(a, due) : 0;
       var diff = billed - paid;          // 할인·캐시백 등으로 덜 냈으면 양수
+      // 이미 지나간 결제일의 청구분 — 아직 기록하지 않았을 수 있습니다
+      var prevDue  = a.payDay ? prevPayDate(a.payDay) : "";
+      var prevBill = prevDue ? billedAmount(a, prevDue) : 0;
+      var prevPaid = prevDue ? paidForPeriod(a, prevDue) : 0;
+      var prevRng  = prevDue ? billingRange(a, prevDue) : null;
+      var prevSeparate = prevDue && prevDue !== due && prevBill > 0;
+      var prevOpen = prevSeparate && prevPaid === 0;
+      var prevDiff = prevBill - prevPaid;
       h+='<div style="margin-top:12px;padding:12px 13px;background:var(--bg);border-radius:12px">'+
         '<div style="display:flex;align-items:center;gap:10px">'+
         '<div style="flex:1;min-width:0">'+
@@ -1257,6 +1276,38 @@ function accCard(a,b,f,idx){
       else if(a.payDay && openPeriod)
         h+='<div style="font-size:11px;color:var(--inkSoft);line-height:1.6;margin-top:8px">'+
           esc(rng.to.slice(5).replace("-","."))+'까지 쓴 만큼 '+a.payDay+'일에 청구돼요. 아직 늘어날 수 있어요.</div>';
+
+      // 지난 결제일 청구분을 아직 기록하지 않았다면
+      if(prevOpen)
+        h+='<div style="margin-top:10px;padding-top:9px;border-top:1px solid var(--line)">'+
+          '<div style="display:flex;align-items:baseline;gap:8px">'+
+          '<span style="font-size:11.5px;font-weight:700;color:var(--down)">지난 청구 미기록</span>'+
+          '<span style="flex:1"></span>'+
+          '<span class="num" style="font-size:13px;font-weight:700">'+mask(prevBill,1)+'</span>'+
+          '<span style="font-size:10.5px;color:var(--inkSoft)">원</span></div>'+
+          '<div class="num" style="font-size:10.5px;color:var(--inkSoft);margin-top:3px">'+
+            esc(prevRng.from.slice(5).replace("-","."))+' ~ '+esc(prevRng.to.slice(5).replace("-","."))+
+            ' 사용분 · '+esc(prevDue.slice(5).replace("-","."))+' 결제일</div>'+
+          '<button class="mini" data-paycard="'+a.id+'|prev" style="width:100%;margin-top:9px;'+
+            'background:var(--accent);color:#fff;padding:10px">이 청구분 결제 기록하기</button>'+
+          '</div>';
+      // 지난 청구를 이미 결제했다면 결과를 보여줍니다
+      else if(prevSeparate && prevPaid > 0)
+        h+='<div style="margin-top:10px;padding-top:9px;border-top:1px solid var(--line)">'+
+          '<div style="display:flex;align-items:baseline;gap:8px">'+
+          '<span style="font-size:11.5px;font-weight:700;color:var(--up)">지난 청구 결제 완료</span>'+
+          '<span style="flex:1"></span>'+
+          '<span class="num" style="font-size:13px;font-weight:700">'+mask(prevPaid,1)+'</span>'+
+          '<span style="font-size:10.5px;color:var(--inkSoft)">원</span></div>'+
+          (prevDiff>0
+            ? '<div style="display:flex;align-items:center;gap:8px;margin-top:8px">'+
+              '<span style="font-size:11px;color:var(--inkSoft);flex:1">청구액보다 '+won(prevDiff)+'원 적게 냈어요</span>'+
+              '<button class="mini" data-carddisc="'+a.id+'|'+prevDiff+'" style="color:var(--accent);'+
+              'padding:6px 11px">할인으로 처리</button></div>'
+            : prevDiff<0
+            ? '<div style="font-size:11px;color:var(--inkSoft);margin-top:6px">청구액보다 '+won(-prevDiff)+'원 더 냈어요</div>'
+            : '')+
+          '</div>';
       else if(!a.payDay)
         h+='<div style="font-size:11px;color:var(--inkSoft);margin-top:6px">'+
           '수정에서 결제일을 정하면 예정 금액을 계산해드려요.</div>';
@@ -2274,9 +2325,13 @@ document.addEventListener("click",function(ev){
     save("transactions", S.tx);
     render(); return; }
   if(d.paycard){
-    var card=accById(d.paycard);
+    var pc=String(d.paycard).split("|");
+    var card=accById(pc[0]);
+    var usePrev = pc[1]==="prev";
     if(card){
-      var due2 = card.payDay ? nextPayDate(card.payDay) : today();
+      var due2 = card.payDay
+        ? (usePrev ? prevPayDate(card.payDay) : nextPayDate(card.payDay))
+        : today();
       var owe = card.payDay ? billedAmount(card, due2) : -(balances()[card.id]||0);
       var src=S.acc.filter(function(x){ return ["cash","savings","installment"].indexOf(x.type)>=0; })[0];
       var st=newTxState();
@@ -2284,7 +2339,7 @@ document.addEventListener("click",function(ev){
       st.amount=owe>0?String(owe):"";
       st.from=src?src.id:"";
       st.to=card.id;
-      st.date=card.payDay?nextPayDate(card.payDay):today();
+      st.date=due2 || today();   // 지난 청구분이면 그 결제일로
       st.memo=card.name+" 결제";
       M=st; render();
     }
